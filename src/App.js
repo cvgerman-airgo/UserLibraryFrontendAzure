@@ -1,24 +1,44 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import BookDetailPage from "./api/pages/BookDetailPage";
+
+import HomePage from './api/pages/HomePage';
+import LoginPage from './api/pages/LoginPage';
+import UsersPage from './api/pages/UsersPage';
+import UserBooksPage from './api/pages/UserBooksPage';
+import Navbar from './api/components/Navbar';
+import VerifyEmailPage from './api/pages/VerifyEmailPage';
+import { useAuth } from "./hooks/useAuth";
 
 function App() {
+  const isLoggedIn = !!localStorage.getItem("token");
+  const { isAuthenticated } = useAuth();
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Router>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route
+          path="/login"
+          element={isLoggedIn ? <Navigate to="/mis-libros" /> : <LoginPage />}
+        />
+        <Route
+          path="/usuarios"
+          element={isLoggedIn ? <UsersPage /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/mis-libros"
+          element={isLoggedIn ? <UserBooksPage /> : <Navigate to="/login" />}
+        />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        {/* Ruta por defecto */}
+        <Route path="*" element={<Navigate to="/" />} />
+        <Route
+          path="/mis-libros/:id"
+          element={isLoggedIn ? <BookDetailPage /> : <Navigate to="/login" />}
+        />
+      </Routes>
+    </Router>
   );
 }
 
