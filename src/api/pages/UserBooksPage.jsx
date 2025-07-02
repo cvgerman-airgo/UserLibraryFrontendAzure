@@ -19,10 +19,26 @@ function getReadingStatus(status) {
 const normalize = (str) => str?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const UserBooksPage = () => {
+  const navigate = useNavigate();
+
+  const [filters, setFilters] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("filters")) || { title: "", author: "", status: "", publisher: "", isbn: "" };
+    } catch {
+      return { title: "", author: "", status: "", publisher: "", isbn: "" };
+    }
+  });
+
+  const [sortFields, setSortFields] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("sortFields")) || [];
+    } catch {
+      return [];
+    }
+  });
+
   const [books, setBooks] = useState([]);
   const [filteredBooks, setFilteredBooks] = useState([]);
-  const [filters, setFilters] = useState({ title: "", author: "", status: "", publisher: "", isbn: "" });
-  const [sortFields, setSortFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -33,14 +49,11 @@ const UserBooksPage = () => {
   const [importError, setImportError] = useState("");
   const [importLoading, setImportLoading] = useState(false);
 
-  const navigate = useNavigate();
-
   useEffect(() => {
     const fetchBooks = async () => {
       try {
         const res = await BookService.getMyBooks();
         setBooks(res.data);
-        setFilteredBooks(res.data);
       } catch {
         setError("No se pudieron cargar tus libros.");
       } finally {
@@ -61,16 +74,17 @@ const UserBooksPage = () => {
     setFilteredBooks(result);
   }, [books, filters]);
 
-  const clearFilters = () => setFilters({ title: "", author: "", status: "", publisher: "", isbn: "" });
+  // Guardar filtros en localStorage
+  useEffect(() => {
+    localStorage.setItem("filters", JSON.stringify(filters));
+  }, [filters]);
 
-  const handleSort = (field) => {
-    setSortFields((prev) => {
-      const existing = prev.find(f => f.field === field);
-      return existing
-        ? prev.map(f => f.field === field ? { ...f, direction: f.direction === "asc" ? "desc" : "asc" } : f)
-        : [...prev, { field, direction: "asc" }];
-    });
-  };
+  // Guardar orden en localStorage
+  useEffect(() => {
+    localStorage.setItem("sortFields", JSON.stringify(sortFields));
+  }, [sortFields]);
+
+  const clearFilters = () => setFilters({ title: "", author: "", status: "", publisher: "", isbn: "" });
 
   const toggleSortField = (field) => {
     setSortFields(prev => {
@@ -81,14 +95,13 @@ const UserBooksPage = () => {
       if (existing.direction === "asc") {
         return prev.map(f => f.field === field ? { ...f, direction: "desc" } : f);
       }
-      // Si ya está en desc, lo quitamos
       return prev.filter(f => f.field !== field);
     });
   };
 
   const removeSortField = (field) => {
-  setSortFields(prev => prev.filter(f => f.field !== field));
-};
+    setSortFields(prev => prev.filter(f => f.field !== field));
+  };
 
   const applySorting = (data) => {
     return [...data].sort((a, b) => {
@@ -121,7 +134,7 @@ const UserBooksPage = () => {
       setShowAddByIsbn(false);
       setIsbn("");
       navigate(`/mis-libros/${book.id}`);
-    } catch (err) {
+    } catch {
       setImportError("No se pudo importar el libro. ¿El ISBN es correcto?");
     } finally {
       setImportLoading(false);
@@ -132,7 +145,7 @@ const UserBooksPage = () => {
     <div className="p-6 min-h-screen bg-gradient-to-br from-blue-100 to-purple-200">
       <h1 className="text-3xl font-extrabold mb-4 text-purple-700 text-center">Mis Libros</h1>
 
-      {/* Botón para añadir libro por ISBN y buscar en Google Books */}
+      {/* Botones añadir libro */}
       <div className="flex justify-center mb-8 gap-4">
         <button className="px-6 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition" onClick={() => setShowAddByIsbn(true)}>Añadir libro por ISBN</button>
         <button className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition" onClick={() => setShowGoogleBooksSearch(true)}>Buscar libro en Internet</button>
@@ -158,7 +171,8 @@ const UserBooksPage = () => {
           <button onClick={clearFilters} className="text-sm text-purple-600 hover:underline">Limpiar filtros</button>
         </div>
       </div>
-      {/* Botones de ordenación */}
+
+      {/* Botones orden */}
       <div className="flex flex-wrap justify-center gap-4 mb-4">
         {[
           { field: "title", label: "Título" },
@@ -183,6 +197,7 @@ const UserBooksPage = () => {
           );
         })}
       </div>
+
       {/* Orden actual */}
       {sortFields.length > 0 && (
         <div className="flex flex-wrap justify-center gap-2 mb-6">
@@ -196,66 +211,45 @@ const UserBooksPage = () => {
               status: "Estado",
             };
             return (
-              <div
-                key={field}
-                className="flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
-              >
+              <div key={field} className="flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
                 {labels[field]} {direction === "asc" ? "↑" : "↓"}
-                <button
-                  onClick={() => removeSortField(field)}
-                  className="ml-2 text-purple-500 hover:text-purple-800"
-                  title="Quitar este orden"
-                >
-                  ×
-                </button>
+                <button onClick={() => removeSortField(field)} className="ml-2 text-purple-500 hover:text-purple-800" title="Quitar este orden">×</button>
               </div>
             );
           })}
         </div>
-      )}  
+      )}
+
       {/* Libros */}
       {loading ? (
         <div className="text-center text-lg">Cargando...</div>
       ) : filteredBooks.length === 0 ? (
         <div className="text-center text-gray-500 mt-10">No se encontraron libros.</div>
       ) : (
-
-        
         <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", display: "grid" }}>
           {applySorting(filteredBooks).map(book => {
             const status = getReadingStatus(book.status);
             return (
-              <div
-                key={book.id}
-                onClick={() => navigate(`/mis-libros/${book.id}`)}
-                className="cursor-pointer bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition"
-              >
+              <div key={book.id} onClick={() => navigate(`/mis-libros/${book.id}`)} className="cursor-pointer bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
                 <div className="w-full h-60 bg-white flex items-center justify-center overflow-hidden rounded">
                   <img
-                    src={
-                      book.coverUrl?.startsWith("http")
-                        ? book.coverUrl
-                        : `/covers/${book.coverUrl?.split("/").pop()}?v=${Date.now()}`
-                    }
+                    src={book.coverUrl?.startsWith("http") ? book.coverUrl : `/covers/${book.coverUrl?.split("/").pop()}?v=${Date.now()}`}
                     alt={book.title}
                     className="h-48 w-full object-contain rounded"
                   />
                 </div>
                 <h2 className="text-lg font-bold mt-2">{book.title}</h2>
                 <p className="text-sm text-gray-600">{book.author}</p>
-                <span
-                  className={`inline-block mt-2 px-3 py-1 rounded-full text-xs ${status.color}`}
-                >
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs ${status.color}`}>
                   {status.icon} {status.text}
                 </span>
               </div>
-
             );
           })}
         </div>
       )}
 
-      {/* Modal Añadir por ISBN */}
+      {/* Modal añadir por ISBN */}
       {showAddByIsbn && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full relative">
@@ -276,7 +270,7 @@ const UserBooksPage = () => {
         </div>
       )}
 
-      {/* Modal Buscar en Google Books */}
+      {/* Modal Google Books */}
       {showGoogleBooksSearch && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-8 max-w-2xl w-full relative overflow-y-auto max-h-screen">

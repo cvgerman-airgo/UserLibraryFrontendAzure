@@ -15,9 +15,12 @@ const GoogleBooksSearch = ({ onImport }) => {
     setResults([]);
     try {
       const res = await BookService.searchGoogleBooks({ title, author, language });
-      setResults(res.data.items || []);
+      setResults(res.data || []);
+      if (res.data.length === 0) {
+        setError("No se encontraron resultados.");
+      }
     } catch (err) {
-      setError("No se encontraron resultados.");
+      setError("Error: No se encontraron resultados.");
     } finally {
       setLoading(false);
     }
@@ -58,20 +61,35 @@ const GoogleBooksSearch = ({ onImport }) => {
         {loading ? "Buscando..." : "Buscar"}
       </button>
       {error && <div className="text-red-500 mb-2">{error}</div>}
+
       <div>
-        {results.map((item) => (
-          <div key={item.id} className="border-b py-2 flex items-center gap-4">
+        {results.map(item => (
+          <div key={item.isbn || item.title} className="border-b py-4 flex gap-4">
             <img
-              src={item.volumeInfo.imageLinks?.thumbnail || "https://via.placeholder.com/64x96?text=Sin+Portada"}
-              alt={item.volumeInfo.title}
-              className="w-16 h-24 object-cover rounded"
+              src={item.coverUrl || "https://via.placeholder.com/64x96?text=Sin+Portada"}
+              alt={item.title}
+              className="w-20 h-28 object-cover rounded"
             />
             <div className="flex-1">
-              <div className="font-bold">{item.volumeInfo.title}</div>
-              <div className="text-sm text-gray-600">{item.volumeInfo.authors?.join(", ")}</div>
+              <div className="font-bold">{item.title}</div>
+              <div className="text-sm text-gray-600">{item.author}</div>
+              <div className="text-sm text-gray-600">{item.publisher}</div>
+              <div className="text-xs text-gray-500 line-clamp-2">{item.summary}</div>
+              <div className="text-xs text-gray-500 mt-1">ISBN: {item.isbn || "No disponible"}</div>
               <button
                 className="mt-2 px-4 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-                onClick={() => onImport(item)}
+                onClick={() => {
+                  if (!item.isbn) return alert("No se encontró ISBN para este libro.");
+                  onImport({
+                    volumeInfo: {
+                      title: item.title,
+                      authors: [item.author],
+                      industryIdentifiers: [{ type: "ISBN_13", identifier: item.isbn }],
+                      description: item.summary,
+                      imageLinks: { thumbnail: item.coverUrl }
+                    }
+                  });
+                }}
               >
                 Importar
               </button>
