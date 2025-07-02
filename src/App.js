@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import BookDetailPage from "./api/pages/BookDetailPage";
+import ForgotPasswordPage from './api/pages/ForgotPasswordPage';
+import ResetPasswordPage from './api/pages/ResetPasswordPage';
 
 import HomePage from './api/pages/HomePage';
 import LoginPage from './api/pages/LoginPage';
@@ -9,6 +11,7 @@ import UserBooksPage from './api/pages/UserBooksPage';
 import Navbar from './api/components/Navbar';
 import VerifyEmailPage from './api/pages/VerifyEmailPage';
 import { useAuth } from "./hooks/useAuth";
+import RegisterPage from './api/pages/RegisterPage';
 
 function App() {
   const isLoggedIn = !!localStorage.getItem("token");
@@ -17,7 +20,12 @@ function App() {
     <Router>
       <Navbar />
       <Routes>
+        <Route path="/registro" element={<RegisterPage />} />
         <Route path="/" element={<HomePage />} />
+        <Route path="/olvide" 
+            element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" 
+            element={<ResetPasswordPage />} />
         <Route
           path="/login"
           element={isLoggedIn ? <Navigate to="/mis-libros" /> : <LoginPage />}

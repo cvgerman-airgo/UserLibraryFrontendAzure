@@ -2,7 +2,14 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  baseURL: 'http://localhost:5000/api', // Cambia esta URL por la de tu backend
+  // Configuración del cliente Axios
+  // Configuracion para Doker
+  baseURL: '/api', // ✅ Ruta relativa para que funcione el proxy
+  // Si acedes desde el host(Windows)
+  // y en .ENV (raiz del fron end) 
+  // REACT_APP_API_URL=http://localhost:5000
+  // baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+
   headers: {
     'Content-Type': 'application/json',
   },

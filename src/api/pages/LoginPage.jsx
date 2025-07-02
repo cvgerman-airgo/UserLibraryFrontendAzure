@@ -14,11 +14,14 @@ const LoginPage = () => {
     e.preventDefault();
     setError('');
     try {
+      console.log('Enviando login:', { email, password });
       const res = await AuthService.login({ email, password });
       login(res.data.token); // Guarda el token en localStorage y contexto
       navigate('/mis-libros');
     } catch (err) {
-      setError('Credenciales incorrectas');
+      
+  console.error('Error al hacer login:', err);
+  setError('Error al conectar con el servidor');
     }
   };
 
@@ -52,6 +55,11 @@ const LoginPage = () => {
         >
           Entrar
         </button>
+         <p className="mt-4 text-center">
+          <a href="/olvide" className="text-purple-600 hover:underline">
+            ¿Olvidaste tu contraseña?
+          </a>
+        </p>
       </form>
     </div>
   );
