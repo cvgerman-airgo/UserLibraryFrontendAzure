@@ -9,12 +9,19 @@ const GoogleBooksSearch = ({ onImport }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Función para eliminar tildes y diacríticos
+  const normalizeText = (text) =>
+    text.normalize('NFD').replace(/[\u0300-\u036f]/g, "")
+
   const handleSearch = async () => {
     setLoading(true);
     setError("");
     setResults([]);
     try {
-      const res = await BookService.searchGoogleBooks({ title, author, language });
+      // Normaliza título y autor antes de buscar
+      const normalizedTitle = normalizeText(title);
+      const normalizedAuthor = normalizeText(author);
+      const res = await BookService.searchGoogleBooks({ title: normalizedTitle, author: normalizedAuthor, language });
       setResults(res.data || []);
       if (res.data.length === 0) {
         setError("No se encontraron resultados.");
