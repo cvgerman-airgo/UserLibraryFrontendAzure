@@ -7,7 +7,7 @@ const ForgotPasswordPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Email enviado al backend:", email); // 👈 Aquí
+//    console.log("Email enviado al backend:", email); // 👈 Aquí
     try {
       await AuthService.forgotPassword({ email });
       setMessage("Si el correo está registrado, se enviará un enlace para restablecer la contraseña.");

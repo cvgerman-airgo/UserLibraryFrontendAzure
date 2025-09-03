@@ -2,6 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BookService from '../BookService';
 import GoogleBooksSearch from "../components/GoogleBooksSearch";
+import StatisticsPage from "./StatisticsPage";
+import "../../Estilos/BookDetailPage.css";
+import "../../Estilos/UserBooksPage.css";
+import IsbnScanner from "../../components/IsbnScanner";
+
 
 // Función para traducir el estado numérico a texto y estilos
 function getReadingStatus(status) {
@@ -19,6 +24,10 @@ function getReadingStatus(status) {
 const normalize = (str) => str?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const UserBooksPage = () => {
+  const [books, setBooks] = useState([]);
+  const [showStats, setShowStats] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
   const navigate = useNavigate();
 
   const [filters, setFilters] = useState(() => {
@@ -37,7 +46,7 @@ const UserBooksPage = () => {
     }
   });
 
-  const [books, setBooks] = useState([]);
+
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,6 +57,7 @@ const UserBooksPage = () => {
   const [language, setLanguage] = useState("es");
   const [importError, setImportError] = useState("");
   const [importLoading, setImportLoading] = useState(false);
+  const [showIsbnScanner, setShowIsbnScanner] = useState(false);
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -129,11 +139,17 @@ const UserBooksPage = () => {
         body: JSON.stringify({ isbn, language }),
       });
       if (!res.ok) throw new Error("No se pudo importar el libro");
-      const book = await res.json();
-      setBooks(prev => [book, ...prev]);
+      const data = await res.json();
+      const importedBook = data.book ? data.book : data;
+//      console.log("handleImportByIsbn: libro importado:", importedBook);
+      setBooks(prev => [importedBook, ...prev]);
       setShowAddByIsbn(false);
       setIsbn("");
-      navigate(`/mis-libros/${book.id}`);
+      if (importedBook && importedBook.id) {
+        navigate(`/mis-libros/${importedBook.id}`);
+      } else {
+        console.error("handleImportByIsbn: El libro importado no tiene id. No se puede navegar.");
+      }
     } catch {
       setImportError("No se pudo importar el libro. ¿El ISBN es correcto?");
     } finally {
@@ -141,39 +157,55 @@ const UserBooksPage = () => {
     }
   };
 
+  // Comprobación de soporte de cámara
+  const isCameraSupported = typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function';
+
   return (
-    <div className="p-6 min-h-screen bg-gradient-to-br from-blue-100 to-purple-200">
-      <h1 className="text-3xl font-extrabold mb-4 text-purple-700 text-center">Mis Libros</h1>
+
+    <div className="user-books-container">
+      <h1 className="user-books-title">Mis Libros</h1>
 
       {/* Botones añadir libro */}
-      <div className="flex justify-center mb-8 gap-4">
-        <button className="px-6 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition" onClick={() => setShowAddByIsbn(true)}>Añadir libro por ISBN</button>
-        <button className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition" onClick={() => setShowGoogleBooksSearch(true)}>Buscar libro en Internet</button>
+      <div className="user-books-actions">
+        <button onClick={() => setShowAddByIsbn(true)}>Añadir libro por ISBN</button>
+        <button style={{background: '#2563eb'}} onClick={() => setShowGoogleBooksSearch(true)}>Buscar libro en Internet</button>
+        <button style={{background: '#f59e42', color: '#fff'}} onClick={() => setShowStatsModal(true)}>
+          📊 Ver estadísticas
+        </button>
+        <button style={{background: '#7c3aed', color: '#fff'}} onClick={() => setShowFiltersModal(true)}>
+          Filtros
+        </button>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white rounded-xl shadow-md p-4 mb-6 max-w-4xl mx-auto">
-        <h2 className="text-lg font-semibold text-purple-700 mb-4">Filtrar libros</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <input type="text" placeholder="Título" value={filters.title} onChange={e => setFilters({ ...filters, title: e.target.value })} className="px-3 py-2 border rounded" />
-          <input type="text" placeholder="Autor" value={filters.author} onChange={e => setFilters({ ...filters, author: e.target.value })} className="px-3 py-2 border rounded" />
-          <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })} className="px-3 py-2 border rounded">
-            <option value="">Estado</option>
-            <option value="0">No leído</option>
-            <option value="1">Leyendo</option>
-            <option value="2">Leído</option>
-            <option value="3">No terminado</option>
-          </select>
-          <input type="text" placeholder="Editorial" value={filters.publisher} onChange={e => setFilters({ ...filters, publisher: e.target.value })} className="px-3 py-2 border rounded" />
-          <input type="text" placeholder="ISBN" value={filters.isbn} onChange={e => setFilters({ ...filters, isbn: e.target.value })} className="px-3 py-2 border rounded" />
+      {/* Modal de Filtros */}
+      {showFiltersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-2xl w-full relative" style={{minWidth: 340, maxWidth: 700}}>
+            <button className="absolute top-2 right-4 text-2xl text-gray-400 hover:text-purple-600" onClick={() => setShowFiltersModal(false)}>&times;</button>
+            <h2 style={{fontSize: '1.2rem', fontWeight: 700, color: '#7c3aed', marginBottom: 8}}>Filtrar libros</h2>
+            <div style={{fontSize: '1rem', color: '#6b7280', marginBottom: 16}}>Libros encontrados: <span style={{fontWeight: 700}}>{filteredBooks.length}</span></div>
+            <div className="user-books-filters-grid">
+              <input type="text" placeholder="Título" value={filters.title} onChange={e => setFilters({ ...filters, title: e.target.value })} />
+              <input type="text" placeholder="Autor" value={filters.author} onChange={e => setFilters({ ...filters, author: e.target.value })} />
+              <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
+                <option value="">Estado</option>
+                <option value="0">No leído</option>
+                <option value="1">Leyendo</option>
+                <option value="2">Leído</option>
+                <option value="3">No terminado</option>
+              </select>
+              <input type="text" placeholder="Editorial" value={filters.publisher} onChange={e => setFilters({ ...filters, publisher: e.target.value })} />
+              <input type="text" placeholder="ISBN" value={filters.isbn} onChange={e => setFilters({ ...filters, isbn: e.target.value })} />
+            </div>
+            <div style={{marginTop: 20, textAlign: 'right'}}>
+              <button style={{fontSize: '1rem', color: '#7c3aed', background: 'none', border: 'none', cursor: 'pointer'}} onClick={clearFilters}>Limpiar filtros</button>
+            </div>
+          </div>
         </div>
-        <div className="mt-4 text-right">
-          <button onClick={clearFilters} className="text-sm text-purple-600 hover:underline">Limpiar filtros</button>
-        </div>
-      </div>
+      )}
 
       {/* Botones orden */}
-      <div className="flex flex-wrap justify-center gap-4 mb-4">
+      <div className="user-books-actions" style={{marginBottom: 16, flexWrap: 'wrap'}}>
         {[
           { field: "title", label: "Título" },
           { field: "author", label: "Autor" },
@@ -186,10 +218,7 @@ const UserBooksPage = () => {
           return (
             <button
               key={field}
-              className={`px-4 py-1 rounded border transition font-medium
-                ${active
-                  ? "bg-purple-600 text-white border-purple-700"
-                  : "bg-white text-purple-700 border-purple-300 hover:bg-purple-100"}`}
+              style={active ? {background: '#7c3aed', color: '#fff', border: '1px solid #5b21b6'} : {background: '#fff', color: '#7c3aed', border: '1px solid #ddd'}}
               onClick={() => toggleSortField(field)}
             >
               {label} {direction === "asc" ? "↑" : direction === "desc" ? "↓" : ""}
@@ -200,8 +229,8 @@ const UserBooksPage = () => {
 
       {/* Orden actual */}
       {sortFields.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-2 mb-6">
-          <span className="font-medium text-gray-700">Orden actual:</span>
+        <div style={{display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 8}}>
+          <span style={{fontWeight: 500, color: '#374151'}}>Orden actual:</span>
           {sortFields.map(({ field, direction }) => {
             const labels = {
               title: "Título",
@@ -211,9 +240,40 @@ const UserBooksPage = () => {
               status: "Estado",
             };
             return (
-              <div key={field} className="flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
+              <div key={field} style={{display: 'flex', alignItems: 'center', padding: '0.25rem 0.75rem', background: '#ede9fe', color: '#7c3aed', borderRadius: 999, fontSize: '0.95rem'}}>
                 {labels[field]} {direction === "asc" ? "↑" : "↓"}
-                <button onClick={() => removeSortField(field)} className="ml-2 text-purple-500 hover:text-purple-800" title="Quitar este orden">×</button>
+                <button onClick={() => removeSortField(field)} style={{marginLeft: 8, color: '#a78bfa', background: 'none', border: 'none', cursor: 'pointer'}} title="Quitar este orden">×</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Filtros activos */}
+      {Object.entries(filters).some(([k, v]) => v) && (
+        <div style={{display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 24}}>
+          <span style={{fontWeight: 500, color: '#374151'}}>Filtros activos:</span>
+          {Object.entries(filters).map(([key, value]) => {
+            if (!value) return null;
+            const labels = {
+              title: "Título",
+              author: "Autor",
+              publisher: "Editorial",
+              isbn: "ISBN",
+              status: "Estado",
+            };
+            let displayValue = value;
+            if (key === "status") {
+              displayValue = {
+                "0": "No leído",
+                "1": "Leyendo",
+                "2": "Leído",
+                "3": "No terminado"
+              }[value] || value;
+            }
+            return (
+              <div key={key} style={{display: 'flex', alignItems: 'center', padding: '0.25rem 0.75rem', background: '#f3f4f6', color: '#7c3aed', borderRadius: 999, fontSize: '0.95rem'}}>
+                {labels[key]}: <b style={{marginLeft: 4}}>{displayValue}</b>
               </div>
             );
           })}
@@ -222,25 +282,28 @@ const UserBooksPage = () => {
 
       {/* Libros */}
       {loading ? (
-        <div className="text-center text-lg">Cargando...</div>
+        <div style={{textAlign: 'center', fontSize: '1.1rem'}}>Cargando...</div>
       ) : filteredBooks.length === 0 ? (
-        <div className="text-center text-gray-500 mt-10">No se encontraron libros.</div>
+        <div style={{textAlign: 'center', color: '#6b7280', marginTop: 40}}>No se encontraron libros.</div>
       ) : (
-        <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", display: "grid" }}>
+        <div className="user-books-grid">
           {applySorting(filteredBooks).map(book => {
             const status = getReadingStatus(book.status);
+            const coversBaseUrl = process.env.REACT_APP_COVERS_URL || '';
+            const coverUrl = book.coverUrl
+              ? (book.coverUrl.startsWith('http') || book.coverUrl.startsWith('data:')
+                  ? book.coverUrl
+                  : `${coversBaseUrl}${book.coverUrl}`)
+              : "https://via.placeholder.com/192x288?text=Sin+Portada";
             return (
-              <div key={book.id} onClick={() => navigate(`/mis-libros/${book.id}`)} className="cursor-pointer bg-white rounded-xl shadow-lg p-4 hover:shadow-xl transition">
-                <div className="w-full h-60 bg-white flex items-center justify-center overflow-hidden rounded">
-                  <img
-                    src={book.coverUrl?.startsWith("http") ? book.coverUrl : `/covers/${book.coverUrl?.split("/").pop()}?v=${Date.now()}`}
-                    alt={book.title}
-                    className="h-48 w-full object-contain rounded"
-                  />
-                </div>
-                <h2 className="text-lg font-bold mt-2">{book.title}</h2>
-                <p className="text-sm text-gray-600">{book.author}</p>
-                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs ${status.color}`}>
+              <div key={book.id} onClick={() => navigate(`/mis-libros/${book.id}`)} className="user-book-card">
+                <img
+                  src={coverUrl}
+                  alt={book.title}
+                />
+                <h2 className="user-book-card-title">{book.title}</h2>
+                <p className="user-book-card-author">{book.author}</p>
+                <span className="user-book-card-status" style={{background: status.color.split(' ')[0].replace('bg-', '#').replace('-100', 'e9fe'), color: status.color.split(' ')[1]?.replace('text-', '#').replace('-700', '7c3aed')}}>
                   {status.icon} {status.text}
                 </span>
               </div>
@@ -249,13 +312,71 @@ const UserBooksPage = () => {
         </div>
       )}
 
+{showStatsModal && (
+  <div className="book-detail-modal-bg">
+    <div className="book-detail-modal">
+      <button className="book-detail-modal-close" onClick={() => setShowStatsModal(false)}>X</button>
+      <StatisticsPage
+        books={books.map(book => ({
+          ...book,
+          endDate: book.endReadingDate,
+          status:
+            book.status === 2
+              ? "Leído"
+              : book.status === 1
+              ? "Leyendo"
+              : book.status === 3
+              ? "No terminado"
+              : book.status === 0
+              ? "No leído"
+              : book.status || "Desconocido",
+        }))}
+      />
+    </div>
+  </div>
+)}
+      
       {/* Modal añadir por ISBN */}
       {showAddByIsbn && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full relative">
             <button className="absolute top-2 right-4 text-2xl text-gray-400 hover:text-purple-600" onClick={() => setShowAddByIsbn(false)}>&times;</button>
             <h2 className="text-xl font-bold mb-4 text-purple-700">Añadir libro por ISBN</h2>
-            <input type="text" placeholder="Introduce el ISBN" value={isbn} onChange={e => setIsbn(e.target.value)} className="w-full mb-4 px-4 py-2 border rounded" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <input
+                type="text"
+                placeholder="Introduce el ISBN"
+                value={isbn}
+                onChange={e => setIsbn(e.target.value)}
+                className="mb-0 px-4 py-2 border rounded"
+                style={{ flex: 1, minWidth: 0, maxWidth: 180 }}
+              />
+              <button
+                type="button"
+                aria-label="Escanear ISBN"
+                style={{ background: 'none', 
+                          border: 'none', 
+                          padding: 0, 
+                          cursor: isCameraSupported ? 'pointer' : 'not-allowed', 
+                          height: 36, 
+                          width: 36, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          opacity: isCameraSupported ? 1 : 0.5 
+                        }}
+                onClick={() => {
+                  if (!isCameraSupported) {
+                    alert('La cámara no está soportada en este navegador. Usa Chrome, Firefox, Edge o Safari actualizado, y accede por HTTPS o localhost.');
+                    return;
+                  }
+                  setShowIsbnScanner(true);
+                }}
+                disabled={!isCameraSupported}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="4"/><path d="M8 2v4M16 2v4M2 8h20M2 16h20M8 22v-4M16 22v-4"/></svg>
+              </button>
+            </div>
             <select value={language} onChange={e => setLanguage(e.target.value)} className="w-full mb-4 px-4 py-2 border rounded">
               <option value="es">Español</option>
               <option value="en">Inglés</option>
@@ -266,6 +387,15 @@ const UserBooksPage = () => {
               {importLoading ? "Buscando..." : "Importar"}
             </button>
             {importError && <div className="text-red-500 mt-2">{importError}</div>}
+            {showIsbnScanner && (
+              <IsbnScanner
+                onDetected={code => {
+                  setIsbn(code);
+                  setShowIsbnScanner(false);
+                }}
+                onClose={() => setShowIsbnScanner(false)}
+              />
+            )}
           </div>
         </div>
       )}

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import BookService from "../BookService";
-
-//const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+import "../../Estilos/BookDetailPage.css";
+import { motion, AnimatePresence } from "framer-motion";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -17,46 +17,65 @@ const BookDetailPage = () => {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
-  // Modal para buscar portadas de Google Books
   const [showCoverSearch, setShowCoverSearch] = useState(false);
   const [coverResults, setCoverResults] = useState([]);
   const [coverQuery, setCoverQuery] = useState("");
   const [loadingCovers, setLoadingCovers] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [zoom, setZoom] = useState(1);
+
+useEffect(() => {
+  if (!id) return;
+
+  const token = localStorage.getItem("token");
+  if (!token) {
+    navigate("/login");
+    return;
+  }
+  const fetchBook = async () => {
+    try {
+      const res = await BookService.getBookById(id);
+      setBook(res.data);
+      setForm(res.data);
+    } catch (err) {
+      console.error("Error cargando libro:", err);
+      if (err.response?.status === 401) {
+        alert("Sesión expirada.");
+        navigate("/login");
+      }
+    }
+  };
+
+  fetchBook();
+}, [id, navigate]);
+
 
   useEffect(() => {
-    const fetchBook = async () => {
-      try {
-        const res = await BookService.getBookById(id);
-        setBook(res.data);
-        setForm(res.data);
-      } catch (err) {
-        setError("No se pudo cargar el libro.");
-      }
-    };
-    fetchBook();
-  }, [id]);
-
+  if (showCoverSearch) {
+    document.body.classList.add("modal-open");
+  } else {
+    document.body.classList.remove("modal-open");
+  }
+}, [showCoverSearch]);
   const handleChange = e => {
     const { name, value } = e.target;
     setForm(f => ({ ...f, [name]: value }));
   };
-const uploadImageToServer = async (base64Image, isbn) => {
-  try {
-    const res = await fetch("/api/books/upload-cover", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ imageUrl: base64Image, isbn })
-    });
-    if (!res.ok) throw new Error("Error al subir la imagen");
-    const data = await res.json();
-    return data;
-  } catch (err) {
-    console.error("Error subiendo la imagen:", err);
-    return null;
-  }
-};
+
+  const uploadImageToServer = async (base64Image, isbn) => {
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/books/upload-cover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: base64Image, isbn })
+      });
+      if (!res.ok) throw new Error("Error al subir la imagen");
+      const data = await res.json();
+      return data;
+    } catch {
+      return null;
+    }
+  };
 
   const handleSave = async () => {
     if (!form.title || !form.author) {
@@ -65,7 +84,6 @@ const uploadImageToServer = async (base64Image, isbn) => {
     }
     try {
       const token = localStorage.getItem("token");
-      // Mapeo de campos a PascalCase para el backend .NET
       const formToSend = {
         Title: form.title,
         Author: form.author,
@@ -83,9 +101,9 @@ const uploadImageToServer = async (base64Image, isbn) => {
         CoverUrl: form.coverUrl,
         AddedDate: form.addedDate,
         Id: form.id,
-        // Agrega aquí cualquier otro campo que tu backend requiera
       };
-      const res = await fetch(`/api/books/${book.id}`, {
+      console.log(`${process.env.REACT_APP_API_URL}/books/${book.id}`); // <-- aquí
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/books/${book.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -93,11 +111,8 @@ const uploadImageToServer = async (base64Image, isbn) => {
         },
         body: JSON.stringify(formToSend),
       });
-      //if (!res.ok) throw new Error("No se pudo actualizar el libro");
       if (res.status === 204) {
         setEditing(false);
-        // Opcional: recarga el libro si quieres mostrar los datos actualizados
-        // await fetchBook();
         return;
       }
       const updated = await res.json();
@@ -109,252 +124,244 @@ const uploadImageToServer = async (base64Image, isbn) => {
   };
 
   if (error) {
-    return <div className="text-red-500 text-center mt-8">{error}</div>;
+    return <div className="book-detail-error">{error}</div>;
   }
 
   if (!book) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600"></div>
+      <div className="book-detail-loading-bg">
+        <div className="book-detail-spinner"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 to-purple-200 p-6">
-      <div className="bg-white rounded-2xl shadow-2xl p-10 flex flex-col md:flex-row items-start gap-10 max-w-4xl w-full">
-       <img
-        src={
-          editing
-            ? (form.coverUrl
-                ? (form.coverUrl.startsWith("http") || form.coverUrl.startsWith("data:")
-                    ? form.coverUrl
-                    : `/covers/${form.coverUrl.replace(/^.*[\\/]/, '')}?v=${Date.now()}`)
-                : "https://via.placeholder.com/192x288?text=Sin+Portada")
-            : (book.coverUrl
-                ? (book.coverUrl.startsWith("http") || book.coverUrl.startsWith("data:")
-                    ? book.coverUrl
-                    : `/covers/${book.coverUrl.replace(/^.*[\\/]/, '')}?v=${Date.now()}`)
-                : "https://via.placeholder.com/192x288?text=Sin+Portada")
-        }
-        alt={form.title || book.title}
-        className="w-48 h-72 object-cover rounded-lg shadow-md mb-6 md:mb-0"
-      />
+    <div className="book-detail-bg">
+      <div className="book-detail-container">
+        <div className="book-detail-flex-row">
+          <img
+            src={
+              editing
+                ? (form.coverUrl
+                    ? (form.coverUrl.startsWith("http") || form.coverUrl.startsWith("data:")
+                        ? form.coverUrl
+                        : `${process.env.REACT_APP_COVERS_URL || ''}${form.coverUrl}`)
+                    : "https://via.placeholder.com/192x288?text=Sin+Portada")
+                : (book.coverUrl
+                    ? (book.coverUrl.startsWith("http") || book.coverUrl.startsWith("data:")
+                        ? book.coverUrl
+                        : `${process.env.REACT_APP_COVERS_URL || ''}${book.coverUrl}?v=${Date.now()}`)
+                    : "https://via.placeholder.com/192x288?text=Sin+Portada")
+            }
+            alt={form.title || book.title}
+              style={{
+                maxWidth: "250px",   // 👈 tamaño fijo en la ficha
+                height: "auto",
+                cursor: "pointer"
+              }}
+            className="book-cover"
+            onClick={() => setShowImageModal(true)}
 
-        <div className="flex-1 min-w-0">
+          />
+          <div className="book-detail-content">
           {editing ? (
             <>
-              {/* Portada: solo botones en una línea */}
-              <div className="flex items-center mb-2 gap-2">
-                <label className="w-32 text-gray-700 font-semibold">Portada</label>
-                <button
-                  type="button"
-                  className="px-3 py-1 bg-blue-500 text-white rounded"
-                  onClick={() => {
-                    setCoverQuery([form.title, form.author].filter(Boolean).join(" ") || "");
-                    setShowCoverSearch(true);
-                  }}
-                >
-                  Buscar portada
-                </button>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="ml-2"
-                  onChange={async (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                     reader.onloadend = async () => {
-                      const result = reader.result;
-                      const isbn = form.isbn || "temp";
-                      const upload = await uploadImageToServer(result, isbn);
-                      if (upload?.relativePath) {
-                        setForm(f => ({ ...f, coverUrl: upload.relativePath, thumbnailUrl: upload.thumbnailPath }));
-                      } else {
-                        alert("No se pudo subir la imagen");
+              <h2 className="book-detail-title">{form.title}</h2>
+              <div className="book-detail-fields">
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Portada</label>
+                  <div className="book-detail-input" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="book-detail-btn book-detail-btn-blue"
+                    onClick={() => {
+                      // Usar separador especial para distinguir título y autor
+                      setCoverQuery([form.title, form.author].filter(Boolean).join("||") || "");
+                      setShowCoverSearch(true);
+                    }}
+                  >
+                    Buscar portada
+                  </button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="book-detail-input"
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = async () => {
+                          const result = reader.result;
+                          const isbn = form.isbn || "temp";
+                          const upload = await uploadImageToServer(result, isbn);
+                          if (upload?.relativePath) {
+                            setForm(f => ({ ...f, coverUrl: upload.relativePath, thumbnailUrl: upload.thumbnailPath }));
+                          } else {
+                            alert("No se pudo subir la imagen");
+                          }
+                        };
+                        reader.readAsDataURL(file);
                       }
-                    };
-                    reader.readAsDataURL(file);
-
-                    }
-                  }}
-                />
+                    }}
+                  />
+                </div>
               </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Título</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="title"
-                  value={form.title || ""}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Autor</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="author"
-                  value={form.author || ""}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Serie</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="series"
-                  value={form.series || ""}
-                  onChange={handleChange}
-                  placeholder="Serie"
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Editorial</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="publisher"
-                  value={form.publisher || ""}
-                  onChange={handleChange}
-                  placeholder="Editorial"
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Género</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="genre"
-                  value={form.genre || ""}
-                  onChange={handleChange}
-                  placeholder="Género"
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">ISBN</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="isbn"
-                  value={form.isbn || ""}
-                  onChange={handleChange}
-                  placeholder="ISBN"
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Fecha publicación</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="publicationDate"
-                  type="date"
-                  value={form.publicationDate ? form.publicationDate.substring(0,10) : ""}
-                  onChange={handleChange}
-                  placeholder="Fecha publicación"
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Páginas</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="pageCount"
-                  type="number"
-                  value={form.pageCount || ""}
-                  onChange={handleChange}
-                  placeholder="Páginas"
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Inicio lectura</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="startReadingDate"
-                  type="date"
-                  value={form.startReadingDate ? form.startReadingDate.substring(0,10) : ""}
-                  onChange={handleChange}
-                  placeholder="Inicio lectura"
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Fin lectura</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="endReadingDate"
-                  type="date"
-                  value={form.endReadingDate ? form.endReadingDate.substring(0,10) : ""}
-                  onChange={handleChange}
-                  placeholder="Fin lectura"
-                />
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Estado</label>
-                <select
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                >
-                  <option value={0}>No leído</option>
-                  <option value={1}>Leyendo</option>
-                  <option value={2}>Leído</option>
-                  <option value={3}>No terminado</option>
-                </select>
-              </div>
-              <div className="flex items-center mb-2">
-                <label className="w-32 text-gray-700 font-semibold">Prestado a</label>
-                <input
-                  className="flex-1 px-2 py-1 border rounded"
-                  name="lentTo"
-                  value={form.lentTo || ""}
-                  onChange={handleChange}
-                  placeholder="Prestado a"
-                />
-              </div>
-              {/* Resumen: etiqueta arriba */}
-              <label className="block text-gray-700 font-semibold mb-1 mt-2">Resumen</label>
-              <textarea
-                className="w-full mb-2 px-2 py-1 border rounded"
-                name="summary"
-                value={form.summary || ""}
-                onChange={handleChange}
-                placeholder="Resumen"
-              />
-              <div className="flex gap-4 mt-4">
-                <button
-                  className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
-                  onClick={handleSave}
-                >
-                  Guardar
-                </button>
-                <button
-                  className="px-6 py-2 bg-gray-400 text-white rounded hover:bg-gray-500 transition"
-                  onClick={() => setEditing(false)}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Título</label>
+                  <textarea
+                    className="book-detail-input"
+                    name="title"
+                    value={form.title || ""}
+                    onChange={handleChange}
+                    rows={2}
+                    style={{resize: 'vertical', minHeight: '2.2em'}}
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Autor</label>
+                  <input
+                    className="book-detail-input"
+                    name="author"
+                    value={form.author || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Serie</label>
+                  <input
+                    className="book-detail-input"
+                    name="series"
+                    value={form.series || ""}
+                    onChange={handleChange}
+                    placeholder="Serie"
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Editorial</label>
+                  <input
+                    className="book-detail-input"
+                    name="publisher"
+                    value={form.publisher || ""}
+                    onChange={handleChange}
+                    placeholder="Editorial"
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Género</label>
+                  <input
+                    className="book-detail-input"
+                    name="genre"
+                    value={form.genre || ""}
+                    onChange={handleChange}
+                    placeholder="Género"
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">ISBN</label>
+                  <input
+                    className="book-detail-input"
+                    name="isbn"
+                    value={form.isbn || ""}
+                    onChange={handleChange}
+                    placeholder="ISBN"
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Fecha publicación</label>
+                  <input
+                    className="book-detail-input"
+                    name="publicationDate"
+                    type="date"
+                    value={form.publicationDate ? form.publicationDate.substring(0,10) : ""}
+                    onChange={handleChange}
+                    placeholder="Fecha publicación"
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Páginas</label>
+                  <input
+                    className="book-detail-input"
+                    name="pageCount"
+                    type="number"
+                    value={form.pageCount || ""}
+                    onChange={handleChange}
+                    placeholder="Páginas"
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Inicio lectura</label>
+                  <input
+                    className="book-detail-input"
+                    name="startReadingDate"
+                    type="date"
+                    value={form.startReadingDate ? form.startReadingDate.substring(0,10) : ""}
+                    onChange={handleChange}
+                    placeholder="Inicio lectura"
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Fin lectura</label>
+                  <input
+                    className="book-detail-input"
+                    name="endReadingDate"
+                    type="date"
+                    value={form.endReadingDate ? form.endReadingDate.substring(0,10) : ""}
+                    onChange={handleChange}
+                    placeholder="Fin lectura"
+                  />
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Estado</label>
+                  <select
+                    className="book-detail-input"
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                  >
+                    <option value={0}>No leído</option>
+                    <option value={1}>Leyendo</option>
+                    <option value={2}>Leído</option>
+                    <option value={3}>No terminado</option>
+                  </select>
+                </div>
+                <div className="book-detail-row">
+                  <label className="book-detail-label">Prestado a</label>
+                  <input
+                    className="book-detail-input"
+                    name="lentTo"
+                    value={form.lentTo || ""}
+                    onChange={handleChange}
+                    placeholder="Prestado a"
+                  />
+                </div>
+              </div> 
+            </> 
+ 
           ) : (
             <>
-              <h2 className="text-3xl font-bold mb-4 text-purple-800">{book.title}</h2>
-              <p className="mb-2 text-gray-600"><b>Autor:</b> {book.author}</p>
+              <h2 className="book-detail-title">{book.title}</h2>
+              <div className="book-detail-fields">
+              <p className="book-detail-info"><b>Autor:</b> {book.author}</p>
               {book.series && (
-                <p className="mb-2 text-gray-600"><b>Serie:</b> {book.series}</p>
+                <p className="book-detail-info"><b>Serie:</b> {book.series}</p>
               )}
-              <p className="mb-2 text-gray-600"><b>Editorial:</b> {book.publisher}</p>
-              <p className="mb-2 text-gray-600"><b>Género:</b> {book.genre}</p>
-              <p className="mb-2 text-gray-600"><b>ISBN:</b> {book.isbn}</p>
+              <p className="book-detail-info"><b>Editorial:</b> {book.publisher}</p>
+              <p className="book-detail-info"><b>Género:</b> {book.genre}</p>
+              <p className="book-detail-info"><b>ISBN:</b> {book.isbn}</p>
               {book.publicationDate && (
-                <p className="mb-2 text-gray-600"><b>Fecha publicación:</b> {formatDate(book.publicationDate)}</p>
+                <p className="book-detail-info"><b>Fecha publicación:</b> {formatDate(book.publicationDate)}</p>
               )}
               {book.pageCount > 0 && (
-                <p className="mb-2 text-gray-600"><b>Páginas:</b> {book.pageCount}</p>
+                <p className="book-detail-info"><b>Páginas:</b> {book.pageCount}</p>
               )}
-              <p className="mb-2 text-gray-600"><b>Fecha de alta:</b> {formatDate(book.addedDate)}</p>
+              <p className="book-detail-info"><b>Fecha de alta:</b> {formatDate(book.addedDate)}</p>
               {book.startReadingDate && (
-                <p className="mb-2 text-gray-600"><b>Inicio lectura:</b> {formatDate(book.startReadingDate)}</p>
+                <p className="book-detail-info"><b>Inicio lectura:</b> {formatDate(book.startReadingDate)}</p>
               )}
               {book.endReadingDate && (
-                <p className="mb-2 text-gray-600"><b>Fin lectura:</b> {formatDate(book.endReadingDate)}</p>
+                <p className="book-detail-info"><b>Fin lectura:</b> {formatDate(book.endReadingDate)}</p>
               )}
-              <p className="mb-2 text-gray-600">
+              <p className="book-detail-info">
                 <b>Estado:</b> {
                   book.status === 2 ? "Leído" :
                   book.status === 1 ? "Leyendo" :
@@ -363,73 +370,268 @@ const uploadImageToServer = async (base64Image, isbn) => {
                 }
               </p>
               {book.lentTo && (
-                <p className="mb-2 text-gray-600"><b>Prestado a:</b> {book.lentTo}</p>
+                <p className="book-detail-info"><b>Prestado a:</b> {book.lentTo}</p>
               )}
-              <div className="mb-2">
-                <b className="text-gray-600">Resumen:</b>
-                <div className="bg-gray-100 rounded p-4 mt-1 text-gray-700 max-h-80 overflow-y-auto whitespace-pre-line">
-                  {book.summary}
-                </div>
-              </div>
-              <div className="flex gap-4 mt-6">
-                <button
-                  className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                  onClick={() => setEditing(true)}
-                >
-                  Editar
-                </button>
-                <button
-                  className="px-6 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
-                  onClick={() => navigate(-1)}
-                >
-                  Volver
-                </button>
-                <button
-                  className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-                  onClick={async () => {
-                    if (window.confirm("¿Seguro que quieres eliminar este libro?")) {
-                      try {
-                        const token = localStorage.getItem("token");
-                        const res = await fetch(`/api/books/${book.id}`, {
-                          method: "DELETE",
-                          headers: {
-                            "Authorization": `Bearer ${token}`,
-                          },
-                        });
-                        if (!res.ok) throw new Error("No se pudo eliminar el libro");
-                        navigate("/mis-libros");
-                      } catch {
-                        alert("No se pudo eliminar el libro");
-                      }
-                    }
-                  }}
-                >
-                  Eliminar
-                </button>
-              </div>
+            </div>
             </>
           )}
         </div>
-        {/* Modal para buscar portadas de Google Books */}
-        {showCoverSearch && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full relative overflow-y-auto max-h-screen">
+                  </div> {/* .book-detail-content */}
+                  {/* Resumen fuera de la fila flex, ocupa todo el ancho solo en modo vista o edición */}
+        {editing ? (
+          <>
+            <div className="book-detail-summary book-detail-summary-full" style={{marginTop: '1.5rem', padding: 0, background: 'none', boxShadow: 'none'}}>
+              <label className="book-detail-label" style={{fontWeight: 'bold', display: 'block', marginBottom: '0.5rem',  textAlign: 'center'}}>Resumen</label>
+              <textarea
+                className="book-detail-input"
+                name="summary"
+                value={form.summary || ""}
+                onChange={handleChange}
+                placeholder="Resumen"
+                rows={8}
+                style={{resize: 'vertical', width: '100%', minHeight: '6rem', fontFamily: 'inherit', background: '#f3f4f6', borderRadius: '0.5rem', border: '1px solid #d1d5db', padding: '1rem'}}
+              />
+            </div>
+            <div className="book-detail-btn-row" style={{display: 'flex', gap: '1rem', marginTop: '1.5rem'}}>
               <button
-                className="absolute top-2 right-4 text-2xl text-gray-400 hover:text-purple-600"
+                className="book-detail-btn book-detail-btn-green"
+                onClick={handleSave}
+              >
+                Guardar
+              </button>
+              <button
+                className="book-detail-btn book-detail-btn-gray"
+                onClick={() => setEditing(false)}
+              >
+                 Cancelar
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="book-detail-summary book-detail-summary-full">
+              <label className="book-detail-label" style={{fontWeight: 'bold', display: 'block', marginBottom: '0.5rem', textAlign: 'left'}}>Resumen</label>
+              <div>{book.summary}</div>
+            </div>
+            <div className="book-detail-btn-row" style={{display: 'flex', gap: '1rem', marginTop: '1.5rem'}}>
+              <button
+                className="book-detail-btn book-detail-btn-green"
+                onClick={async () => {
+                  if (!book.isbn) {
+                    alert("No hay ISBN para buscar en Google Books/OpenLibrary");
+                    return;
+                  }
+                  let infoGB = null;
+                  let infoOL = null;
+                  try {
+                    const resGB = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${book.isbn}`);
+                    const dataGB = await resGB.json();
+                    if (dataGB.items && dataGB.items.length > 0) {
+                      infoGB = dataGB.items[0].volumeInfo;
+                    }
+                  } catch {}
+                  try {
+                    const resOL = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${book.isbn}&jscmd=data&format=json`);
+                    const dataOL = await resOL.json();
+                    if (dataOL[`ISBN:${book.isbn}`]) {
+                      infoOL = dataOL[`ISBN:${book.isbn}`];
+                    }
+                  } catch {}
+                  if (!infoGB && !infoOL) {
+                    alert("No se encontró el libro en Google Books ni OpenLibrary");
+                    return;
+                  }
+                  const updated = { ...book };
+                  if (!book.title) updated.title = infoGB?.title || infoOL?.title || book.title;
+                  if (!book.author) updated.author = (infoGB?.authors?.join(", ") || (infoOL?.authors ? infoOL.authors.map(a=>a.name).join(", ") : "") || book.author);
+                  if (!book.publisher) updated.publisher = infoGB?.publisher || (infoOL?.publishers ? infoOL.publishers.map(p=>p.name).join(", ") : "") || book.publisher;
+                  function cleanGenres(genres) {
+                    if (!genres || !genres.length) return "";
+                    const normalize = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                    const unique = [];
+                    genres.forEach(g => {
+                      if (!unique.some(u => normalize(u) === normalize(g))) unique.push(g);
+                    });
+                    //Filtrar sin acentos y sin duplicados
+                    const spanish = unique.filter(g => /[áéíóúñ]/i.test(g) || /ficci[oó]n|novela|literatura|aventura|historia|poes[ií]a|infantil|juvenil|ciencia|misterio|terror|romance|biograf[ií]a|ensayo|cuento|clásico|clasico|thrille/i.test(g));
+                    if (spanish.length) return spanish.slice(0, 2).join(", ");
+                    return unique.slice(0, 2).join(", ");
+                  }
+                  // Guardar datos de Google Books y OpenLibrary
+                  //
+                  let genres = [];
+                  if (infoGB?.categories) genres = genres.concat(infoGB.categories);
+                  if (infoOL?.subjects) genres = genres.concat(infoOL.subjects.map(s => s.name));
+                  if (!book.genre && genres.length) updated.genre = cleanGenres(genres);
+                  if (!book.summary) updated.summary = infoGB?.description || infoOL?.description || book.summary;
+                  // Si no hay portada, usar la de Google Books o OpenLibrary
+                  if ((!book.coverUrl || book.coverUrl.includes('placeholder')) 
+                    && (infoGB?.imageLinks?.thumbnail 
+                    || infoOL?.cover?.large 
+                    || infoOL?.cover?.medium 
+                    || infoOL?.cover?.small)) {
+                    // Siempre guardar como /covers/ISBN.jpg si hay ISBN
+                    const isbn = book.isbn || updated.isbn;
+                    if (isbn) {
+                      updated.coverUrl = `/covers/${isbn}.jpg`;
+                    } else {
+                      // Si no hay ISBN, usar un nombre genérico
+                      updated.coverUrl = '/covers/sin_isbn.jpg';
+                    }
+                  }
+                  if (!book.pageCount) updated.pageCount = infoGB?.pageCount || infoOL?.number_of_pages || book.pageCount;
+                  if (!book.publicationDate) updated.publicationDate = infoGB?.publishedDate || infoOL?.publish_date || book.publicationDate;
+                  function normalizeDate(date) {
+                    if (!date) return null;
+                    if (/^\d{4}$/.test(date)) return date + "-01-01";
+                    if (/^\d{4}-\d{2}$/.test(date)) return date + "-01";
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+                    if (date instanceof Date) return date.toISOString().split('T')[0];
+                    return null;
+                  }
+                  try {
+                    const token = localStorage.getItem("token");
+                    const formToSend = {
+                      Title: updated.title,
+                      Author: updated.author,
+                      Series: updated.series,
+                      Publisher: updated.publisher,
+                      Genre: updated.genre,
+                      Isbn: updated.isbn,
+                      PublicationDate: normalizeDate(updated.publicationDate),
+                      PageCount: updated.pageCount,
+                      StartReadingDate: updated.startReadingDate,
+                      EndReadingDate: updated.endReadingDate,
+                      Status: Number(updated.status),
+                      LentTo: updated.lentTo,
+                      Summary: updated.summary,
+                      // Si el coverUrl es una URL externa, forzar formato /covers/ISBN.jpg
+                      CoverUrl: (updated.coverUrl && (updated.coverUrl.startsWith('http') || updated.coverUrl.startsWith('https')))
+                        ? (updated.isbn ? `/covers/${updated.isbn}.jpg` : '/covers/sin_isbn.jpg')
+                        : updated.coverUrl,
+                      AddedDate: updated.addedDate,
+                      Id: updated.id,
+                    };
+                    const res = await fetch(`${process.env.REACT_APP_API_URL}/books/${book.id}`, {
+                      method: "PUT",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`,
+                      },
+                      body: JSON.stringify(formToSend),
+                    });
+                    if (res.status === 200) {
+                      const saved = await res.json();
+                      setBook(saved);
+                      alert("Datos completados y guardados automáticamente (solo campos vacíos)");
+                    } else if (res.status === 204) {
+                      const refreshed = await await fetch(`${process.env.REACT_APP_API_URL}/books/${book.id}`);
+                      if (refreshed.ok) {
+                        const saved = await refreshed.json();
+                        setBook(saved);
+                        alert("Datos completados y guardados automáticamente (solo campos vacíos)");
+                      } else {
+                        setBook(updated);
+                        alert("Datos completados localmente, pero no se pudieron guardar en el servidor (GET fallido)");
+                      }
+                    } else {
+                      let errorText = "";
+                      try {
+                        // Intenta leer como texto
+                        const text = await res.text();
+                        // Intenta parsear como JSON si parece un objeto
+                        try {
+                          const json = JSON.parse(text);
+                          errorText = json.error || JSON.stringify(json);
+                        } catch {
+                          // Si no es JSON, usa el texto plano
+                          errorText = text || `${res.status} ${res.statusText}`;
+                        }
+                      } catch (err) {
+                        errorText = `${res.status} ${res.statusText}`;
+                      }
+                      setBook(updated);
+                      alert("Error al guardar en el servidor: " + errorText);
+}
+                  } catch (e) {
+                    setBook(updated);
+                    alert("Datos completados localmente, pero no se pudieron guardar en el servidor: " + e);
+                  }
+                }}
+              >
+                Completar datos
+              </button>
+              <button
+                className="book-detail-btn book-detail-btn-blue"
+                onClick={() => setEditing(true)}
+              >
+                Editar
+              </button>
+              <button
+                className="book-detail-btn book-detail-btn-purple"
+                onClick={() => navigate(-1)}
+              >
+                Volver
+              </button>
+              <button
+                className="book-detail-btn book-detail-btn-red"
+                onClick={async () => {
+                  if (window.confirm("¿Seguro que quieres eliminar este libro?")) {
+                    try {
+                      const token = localStorage.getItem("token");
+                      const res = await fetch(`${process.env.REACT_APP_API_URL}/books/${book.id}`, {
+                        method: "DELETE",
+                        headers: {
+                          "Authorization": `Bearer ${token}`,
+                        },
+                      });
+                      if (!res.ok) throw new Error("No se pudo eliminar el libro");
+                      navigate("/mis-libros");
+                    } catch {
+                      alert("No se pudo eliminar el libro");
+                    }
+                  }
+                }}
+              >
+                Eliminar
+              </button>
+            </div>
+          </>
+        )}
+  
+        {showCoverSearch && (
+          <div className="book-detail-modal-bg">
+            <div className="book-detail-modal">
+              <button
+                className="book-detail-modal-close"
                 onClick={() => setShowCoverSearch(false)}
               >
                 &times;
               </button>
-              <h2 className="text-xl font-bold mb-4 text-purple-800">Buscar portada en Internet</h2>
+              <h2 className="book-detail-modal-title">Buscar portada en Internet</h2>
               <form
-                className="flex gap-2 mb-4"
+                className="book-detail-modal-form"
+                
                 onSubmit={async (e) => {
                   e.preventDefault();
                   setLoadingCovers(true);
                   setCoverResults([]);
                   try {
+                    // Construir query precisa usando los valores actuales del formulario
+                    let query = "";
+                    if (form.title && form.author) {
+                      query = `intitle:\"${form.title.trim()}\" inauthor:\"${form.author.trim()}\"`;
+                    } else if (form.title) {
+                      query = `intitle:\"${form.title.trim()}\"`;
+                    } else if (form.author) {
+                      query = `inauthor:\"${form.author.trim()}\"`;
+                    } else if (coverQuery) {
+                      query = coverQuery;
+                    } else {
+                      query = "";
+                    }
                     const res = await fetch(
-                      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(coverQuery)}`
+                      `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}`
                     );
                     const data = await res.json();
                     setCoverResults(
@@ -446,7 +648,7 @@ const uploadImageToServer = async (base64Image, isbn) => {
                 }}
               >
                 <input
-                  className="flex-1 px-2 py-1 border rounded"
+                  className="book-detail-input"
                   type="text"
                   placeholder="Título, autor..."
                   value={coverQuery}
@@ -454,22 +656,22 @@ const uploadImageToServer = async (base64Image, isbn) => {
                 />
                 <button
                   type="submit"
-                  className="px-4 py-1 bg-blue-600 text-white rounded"
+                  className="book-detail-btn book-detail-btn-blue"
                 >
                   Buscar
                 </button>
               </form>
               {loadingCovers && <div className="mb-4 text-center">Buscando portadas...</div>}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="book-detail-cover-grid">
                 {coverResults.map((cover, idx) =>
                   cover.url && (
                     <div
                       key={idx}
-                      className="cursor-pointer border rounded hover:shadow-lg p-2 flex flex-col items-center"
+                      className="book-detail-cover-option"
                       onClick={async () => {
                         try {
                           const token = localStorage.getItem("token");
-                          const res = await fetch("/api/books/upload-cover", {
+                          const res = await fetch(`${process.env.REACT_APP_API_URL}/books/upload-cover`, {
                             method: "POST",
                             headers: {
                               "Content-Type": "application/json",
@@ -492,11 +694,10 @@ const uploadImageToServer = async (base64Image, isbn) => {
                         }
                         setShowCoverSearch(false);
                       }}
-
                     >
-                      <img src={cover.url} alt={cover.title} className="w-24 h-36 object-cover mb-2" />
-                      <div className="text-xs text-center">{cover.title}</div>
-                      <div className="text-xs text-gray-500">{cover.authors}</div>
+                      <img src={cover.url} alt={cover.title} className="book-detail-cover-thumb" />
+                      <div className="book-detail-cover-title">{cover.title}</div>
+                      <div className="book-detail-cover-authors">{cover.authors}</div>
                     </div>
                   )
                 )}
@@ -504,8 +705,88 @@ const uploadImageToServer = async (base64Image, isbn) => {
             </div>
           </div>
         )}
+        </div>
+        <AnimatePresence>
+          {showImageModal && (
+            <motion.div
+              className="book-detail-modal-bg"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(0,0,0,0.6)",
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                zIndex: 2000
+              }}
+              onClick={() => { setShowImageModal(false); setZoom(1); }} // resetea zoom al cerrar
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                style={{
+                  position: "relative",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+                }}
+                onClick={(e) => e.stopPropagation()} // evita cerrar al clickear dentro
+              >
+                <button
+                  onClick={() => { setShowImageModal(false); setZoom(1); }}
+                  style={{
+                    position: "absolute",
+                    top: "8px",
+                    right: "12px",
+                    fontSize: "1.5rem",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#fff",
+                    zIndex: 10
+                  }}
+                >
+                  &times;
+                </button>
+
+                {/* Imagen con zoom */}
+                <motion.img
+                  src={
+                    book.coverUrl
+                      ? (book.coverUrl.startsWith("http") || book.coverUrl.startsWith("data:")
+                          ? book.coverUrl
+                          : `${process.env.REACT_APP_COVERS_URL || ''}${book.coverUrl}`)
+                      : "https://via.placeholder.com/400x600?text=Sin+Portada"
+                  }
+                  alt={book.title}
+                  style={{
+                    maxWidth: "90vw",
+                    maxHeight: "90vh",
+                    borderRadius: "8px",
+                    display: "block",
+                    transform: `scale(${zoom})`,
+                    transition: "transform 0.1s ease-out"
+                  }}
+                  onWheel={(e) => {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? -0.1 : 0.1; // rueda hacia abajo = achicar, arriba = agrandar
+                    setZoom((z) => Math.min(Math.max(0.5, z + delta), 3)); // límite 0.5x a 3x
+                  }}
+                />
+
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
   );
 };
 

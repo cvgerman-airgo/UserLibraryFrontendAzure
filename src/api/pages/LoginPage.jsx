@@ -9,22 +9,49 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { login } = useAuth();
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      console.log('Enviando login:', { email, password });
+//      console.log('Enviando login:', { email, password });
       const res = await AuthService.login({ email, password });
       login(res.data.token); // Guarda el token en localStorage y contexto
       navigate('/mis-libros');
     } catch (err) {
       
-  console.error('Error al hacer login:', err);
-  setError('Error al conectar con el servidor');
+setError(
+  <>
+    <strong>Error al conectar con el servidor:</strong> {err.message || err.toString()}
+    {err.response && (
+      <>
+        <br />
+        <strong>Status:</strong> {err.response.status}
+        <br />
+        <strong>Data:</strong> {JSON.stringify(err.response.data)}
+      </>
+    )}
+    {err.request && (
+      <>
+        <br />
+        <strong>Request:</strong> {JSON.stringify(err.request)}
+      </>
+    )}
+  </>
+);
     }
   };
-
+  const handleLogin = async () => {
+    setError("");
+    try {
+      const res = await AuthService.login(email, password);
+      login(res.data.token); // ✅ guarda token + actualiza estado
+      navigate("/mis-libros"); // ✅ redirige tras login
+    } catch (err) {
+      setError("Credenciales incorrectas");
+    }
+  };
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 to-purple-200">
       <form

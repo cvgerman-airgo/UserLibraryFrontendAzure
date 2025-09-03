@@ -1,0 +1,78 @@
+/* StatisticsPage.css - Responsive styles for statistics page */
+
+.statistics-container {
+  padding: 1.5rem 0.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.statistics-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #7c3aed;
+  text-align: center;
+  margin-bottom: 1.2rem;
+}
+
+.statistics-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.2rem;
+}
+@media (min-width: 600px) {
+  .statistics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.statistics-card {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px rgba(124,58,237,0.07);
+  padding: 1.2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.statistics-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background: #fff;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  font-size: 0.98rem;
+}
+.statistics-table th, .statistics-table td {
+  padding: 0.6rem 0.5rem;
+  text-align: left;
+}
+.statistics-table th {
+  background: #ede9fe;
+  color: #7c3aed;
+  font-weight: 600;
+}
+.statistics-table tr:nth-child(even) {
+  background: #f3f4f6;
+}
+
+.statistics-chart {
+  width: 100%;
+  max-width: 350px;
+  margin: 0 auto 1rem auto;
+  display: block;
+}
+
+@media (max-width: 400px) {
+  .statistics-card {
+    padding: 0.7rem 0.3rem;
+  }
+  .statistics-title {
+    font-size: 1.1rem;
+  }
+  .statistics-table th, .statistics-table td {
+    padding: 0.35rem 0.2rem;
+    font-size: 0.92rem;
+  }
+}

@@ -1,16 +1,11 @@
-// src/hooks/useAuth.js
-import { useContext, createContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { isTokenValid } from "../api/AuthService";
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Al iniciar, lee el token del localStorage
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsAuthenticated(!!token);
-  }, []);
+  const [loading, setLoading] = useState(true); // ⏳ control de carga
 
   const login = (token) => {
     localStorage.setItem("token", token);
@@ -20,15 +15,23 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem("token");
     setIsAuthenticated(false);
-    window.location.href = "/login";
   };
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token && isTokenValid()) {
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
+    }
+    setLoading(false); // ✅ se terminó de verificar
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
 export const useAuth = () => useContext(AuthContext);
-

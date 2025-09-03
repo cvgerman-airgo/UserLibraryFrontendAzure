@@ -1,0 +1,151 @@
+/* UserBooksPage.css - Responsive styles for main books page */
+
+.user-books-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #dbeafe 0%, #e9d5ff 100%);
+  padding: 24px 8px;
+}
+
+.user-books-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  color: #7c3aed;
+  text-align: center;
+}
+
+.user-books-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.user-books-actions button {
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  border: none;
+  background: #7c3aed;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.user-books-actions button:hover {
+  background: #5b21b6;
+}
+
+.user-books-filters {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.user-books-filters-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 600px) {
+  .user-books-filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (min-width: 900px) {
+  .user-books-filters-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.user-books-filters input,
+.user-books-filters select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 1rem;
+}
+
+.user-books-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 360px) {
+  .user-books-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 600px) {
+  .user-books-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (min-width: 900px) {
+  .user-books-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (min-width: 1200px) {
+  .user-books-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.user-book-card {
+  background: #fff;
+  border-radius: 0.7rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 0.6rem;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.user-book-card:hover {
+  box-shadow: 0 4px 16px rgba(124,58,237,0.15);
+}
+.user-book-card img {
+  max-height: 120px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 0.4rem;
+  background: #f3f4f6;
+}
+@media (min-width: 600px) {
+  .user-book-card img {
+    max-height: 160px;
+  }
+}
+@media (min-width: 900px) {
+  .user-book-card img {
+    max-height: 180px;
+  }
+}
+.user-book-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+  text-align: center;
+}
+.user-book-card-author {
+  font-size: 0.95rem;
+  color: #6b7280;
+  text-align: center;
+}
+.user-book-card-status {
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  display: inline-block;
+}
+
+/* Responsive adjustments for modals, stats, etc. can be added as needed */

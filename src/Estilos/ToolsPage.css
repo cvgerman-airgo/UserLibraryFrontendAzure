@@ -1,0 +1,166 @@
+/* ToolsPage.css - Responsive styles for tools page */
+
+.tools-container {
+  padding: 1.5rem 0.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tools-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #7c3aed;
+  text-align: center;
+  margin-bottom: 1.2rem;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.2rem;
+}
+@media (min-width: 600px) {
+  .tools-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+}
+@media (min-width: 1000px) {
+  .tools-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+}
+
+.tools-card {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px rgba(124,58,237,0.07);
+  padding: 1.2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tools-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+.tools-form input,
+.tools-form select,
+.tools-form textarea {
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 1rem;
+  width: 100%;
+}
+.tools-form select {
+  min-width: 110px;
+}
+.tools-form button {
+  padding: 0.45rem 1.1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  border: none;
+  background: #7c3aed;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.tools-form button:hover {
+  background: #5b21b6;
+}
+.export-btn {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 0.75em 1.5em;
+  border-radius: 5px;
+  margin-top: 1em;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.export-btn:hover {
+  background-color: #0056b3;
+}.export-btn {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 0.75em 1.5em;
+  border-radius: 5px;
+  margin-top: 1em;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.export-btn:hover {
+  background-color: #0056b3;
+}
+.tools-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 100;
+  padding: 8px 0 16px 0;
+  border-bottom: 1px solid #ececec;
+}
+.tools-btn.export-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.6em 1.2em;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.tools-btn.volver-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.6em 1.2em;
+  font-size: 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-left: 1em;
+  transition: background 0.2s, color 0.2s;
+}
+.tools-btn.volver-btn:hover {
+  background: #2563eb;
+  color: #fff;
+}
+.tools-btn.export-btn:hover {
+  background-color: #0056b3;
+}
+
+@media (max-width: 400px) {
+  .tools-card {
+    padding: 0.7rem 0.3rem;
+  }
+ .tools-title {
+  margin-top: 1.25em;
+  margin-bottom: 1.2em;
+  font-size: 1.7em;
+  font-weight: bold;
+  text-align: left;
+}
+  .tools-form input,
+  .tools-form select,
+  .tools-form textarea {
+    font-size: 0.88rem;
+    padding: 0.35rem 0.2rem;
+  }
+  .tools-form select {
+    min-width: 90px;
+  }
+}

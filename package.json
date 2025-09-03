@@ -2,13 +2,17 @@
   "name": "userlibrary-frontend",
   "version": "1.0.0",
   "private": true,
-  "proxy": "http://backend:80",
+  "proxy": "http://localhost:5000",
   "dependencies": {
     "@tailwindcss/line-clamp": "^0.4.4",
     "axios": "^1.9.0",
+    "framer-motion": "^12.23.12",
+    "jwt-decode": "^4.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "react-router-dom": "^6.0.0"
+    "react-qr-scanner": "^1.0.0-alpha.11",
+    "react-router-dom": "^6.0.0",
+    "recharts": "^3.1.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.0.0",

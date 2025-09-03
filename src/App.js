@@ -1,53 +1,65 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import BookDetailPage from "./api/pages/BookDetailPage";
-import ForgotPasswordPage from './api/pages/ForgotPasswordPage';
-import ResetPasswordPage from './api/pages/ResetPasswordPage';
-
-import HomePage from './api/pages/HomePage';
-import LoginPage from './api/pages/LoginPage';
-import UsersPage from './api/pages/UsersPage';
-import UserBooksPage from './api/pages/UserBooksPage';
-import Navbar from './api/components/Navbar';
-import VerifyEmailPage from './api/pages/VerifyEmailPage';
+import React from "react";
+import { BrowserRouter, Routes, Route, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
-import RegisterPage from './api/pages/RegisterPage';
+import LoginPage from "./api/pages/LoginPage";
+import UserBooksPage from "./api/pages/UserBooksPage";
+import ToolsPage from "./api/pages/ToolsPage";
+import BookDetailPage from "./api/pages/BookDetailPage";
+import HomePage from "./api/pages/HomePage";
+import RegisterPage from "./api/pages/RegisterPage";
 
 function App() {
-  const isLoggedIn = !!localStorage.getItem("token");
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout, loading } = useAuth();
+  const navigate = useNavigate();
+
+  if (loading) return null; // o puedes poner: return <div>Cargando...</div>;
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
   return (
-    <Router>
-      <Navbar />
-      <Routes>
-        <Route path="/registro" element={<RegisterPage />} />
-        <Route path="/" element={<HomePage />} />
-        <Route path="/olvide" 
-            element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" 
-            element={<ResetPasswordPage />} />
-        <Route
-          path="/login"
-          element={isLoggedIn ? <Navigate to="/mis-libros" /> : <LoginPage />}
-        />
-        <Route
-          path="/usuarios"
-          element={isLoggedIn ? <UsersPage /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/mis-libros"
-          element={isLoggedIn ? <UserBooksPage /> : <Navigate to="/login" />}
-        />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
-        {/* Ruta por defecto */}
-        <Route path="*" element={<Navigate to="/" />} />
-        <Route
-          path="/mis-libros/:id"
-          element={isLoggedIn ? <BookDetailPage /> : <Navigate to="/login" />}
-        />
-      </Routes>
-    </Router>
+    <div>
+      <header className="flex justify-between items-center p-4 bg-gray-100 border-b">
+        <h1 className="text-lg font-bold">📚 Mi Biblioteca</h1>
+        {isAuthenticated && (
+          <nav className="flex gap-4 items-center">
+            <Link to="/mis-libros" className="text-blue-600 hover:underline">
+              Mis libros
+            </Link>
+            <Link to="/herramientas" className="text-blue-600 hover:underline">
+              🛠 Herramientas
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="text-sm text-red-600 hover:underline"
+            >
+              Cerrar sesión
+            </button>
+          </nav>
+        )}
+      </header>
+
+      <main className="p-4">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/mis-libros" element={<UserBooksPage />} />
+          <Route path="/herramientas" element={<ToolsPage />} />
+          <Route path="/mis-libros/:id" element={<BookDetailPage />} />
+          <Route path="*" element={<LoginPage />} />
+        </Routes>
+      </main>
+    </div>
   );
 }
 
-export default App;
+export default function AppWrapper() {
+  return (
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  );
+}

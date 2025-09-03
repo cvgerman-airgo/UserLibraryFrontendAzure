@@ -1,0 +1,217 @@
+/* BookDetailPage.css - Responsive styles for book detail page */
+
+.book-detail-bg {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f3f4f6 0%, #ede9fe 100%);
+  padding: 24px 8px;
+}
+
+.book-detail-container {
+  max-width: 900px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 1.2rem;
+  box-shadow: 0 2px 12px rgba(124,58,237,0.07);
+  padding: 2rem 1rem;
+}
+
+.book-detail-flex-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+@media (min-width: 700px) {
+  .book-detail-flex-row {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 2.5rem;
+  }
+}
+
+.book-cover {
+  max-width: 160px;
+  max-height: 240px;
+  border-radius: 0.7rem;
+  background: #f3f4f6;
+  box-shadow: 0 2px 8px rgba(124,58,237,0.08);
+}
+@media (max-width: 400px) {
+  .book-cover {
+    max-width: 110px;
+    max-height: 160px;
+  }
+}
+
+.book-detail-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.book-detail-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #7c3aed;
+  text-align: center;
+}
+
+.book-detail-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.book-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.book-detail-label {
+  font-size: 0.98rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.book-detail-input {
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 1rem;
+  width: 100%;
+}
+
+.book-detail-info {
+  font-size: 1rem;
+  color: #444;
+  margin-bottom: 0.2rem;
+}
+
+.book-detail-summary-full {
+  margin-top: 1.2rem;
+  background: #f3f4f6;
+  border-radius: 0.7rem;
+  padding: 1rem;
+  font-size: 1rem;
+  color: #444;
+}
+
+.book-detail-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1.2rem;
+}
+
+.book-detail-btn {
+  padding: 0.45rem 1.1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  border: none;
+  background: #ede9fe;
+  color: #7c3aed;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.book-detail-btn-green { background: #bbf7d0; color: #166534; }
+.book-detail-btn-blue { background: #dbeafe; color: #2563eb; }
+.book-detail-btn-purple { background: #ede9fe; color: #7c3aed; }
+.book-detail-btn-red { background: #fee2e2; color: #b91c1c; }
+.book-detail-btn-gray { background: #f3f4f6; color: #444; }
+.book-detail-btn:hover { background: #c7d2fe; }
+
+.book-detail-modal-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.book-detail-modal {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 4px 24px rgba(124,58,237,0.13);
+  padding: 2rem 1.2rem;
+  max-width: 95vw;
+  max-height: 95vh;
+  overflow-y: auto;
+  position: relative;
+}
+.book-detail-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  font-size: 1.5rem;
+  color: #bbb;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.book-detail-cover-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.7rem;
+}
+@media (min-width: 600px) {
+  .book-detail-cover-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.book-detail-cover-option {
+  background: #f3f4f6;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.book-detail-cover-option:hover {
+  box-shadow: 0 2px 8px #a78bfa44;
+}
+.book-detail-cover-thumb {
+  max-width: 80px;
+  max-height: 120px;
+  margin-bottom: 0.3rem;
+  border-radius: 0.3rem;
+}
+.book-detail-cover-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #7c3aed;
+}
+.book-detail-cover-authors {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.book-detail-loading-bg {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.book-detail-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #ede9fe;
+  border-top: 4px solid #7c3aed;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.book-detail-error {
+  color: #b91c1c;
+  background: #fee2e2;
+  border-radius: 0.7rem;
+  padding: 1rem;
+  text-align: center;
+  margin: 2rem auto;
+  max-width: 500px;
+}
