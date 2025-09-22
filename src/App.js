@@ -7,6 +7,7 @@ import ToolsPage from "./api/pages/ToolsPage";
 import BookDetailPage from "./api/pages/BookDetailPage";
 import HomePage from "./api/pages/HomePage";
 import RegisterPage from "./api/pages/RegisterPage";
+import VerifyEmailPage from "./api/pages/VerifyEmailPage";
 
 function App() {
   const { isAuthenticated, logout, loading } = useAuth();
@@ -46,6 +47,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/mis-libros" element={<UserBooksPage />} />
           <Route path="/herramientas" element={<ToolsPage />} />
           <Route path="/mis-libros/:id" element={<BookDetailPage />} />
