@@ -1,13 +1,40 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import BookService from "../BookService";
+import axiosClient from "../axiosClient";
 import "../../Estilos/BookDetailPage.css";
 import { motion, AnimatePresence } from "framer-motion";
+import { bytesToDataUrl, fileToBase64, downloadImageAsBytes } from "../../utils/imageUtils";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
   const date = new Date(dateStr);
   return date.toLocaleDateString();
+}
+
+// Helper para obtener la URL de la imagen desde los datos del libro
+function getImageUrl(book) {
+  if (!book || !book.coverImage) {
+    return "https://via.placeholder.com/192x288?text=Sin+Portada";
+  }
+  // Si es array de bytes
+  if (Array.isArray(book.coverImage) && book.coverImage.length > 0) {
+    return bytesToDataUrl(book.coverImage, 'image/jpeg');
+  }
+  // Si es string base64
+  if (typeof book.coverImage === 'string' && book.coverImage.length > 0) {
+    // Si el string contiene solo base64, convertir a array de bytes
+    try {
+      const binary = atob(book.coverImage);
+      const bytes = new Uint8Array([...binary].map(c => c.charCodeAt(0)));
+      return bytesToDataUrl(Array.from(bytes), 'image/jpeg');
+    } catch (e) {
+      // Si falla, mostrar placeholder
+      return "https://via.placeholder.com/192x288?text=Sin+Portada";
+    }
+  }
+  // Si no hay imagen válida
+  return "https://via.placeholder.com/192x288?text=Sin+Portada";
 }
 
 const BookDetailPage = () => {
@@ -35,6 +62,8 @@ useEffect(() => {
   const fetchBook = async () => {
     try {
       const res = await BookService.getBookById(id);
+      console.log('=== LIBRO CARGADO DESDE API ===');
+      console.log('res.data.coverImage:', res.data.coverImage ? `${res.data.coverImage.length} bytes` : 'null');
       setBook(res.data);
       setForm(res.data);
     } catch (err) {
@@ -62,21 +91,6 @@ useEffect(() => {
     setForm(f => ({ ...f, [name]: value }));
   };
 
-  const uploadImageToServer = async (base64Image, isbn) => {
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/books/upload-cover`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: base64Image, isbn })
-      });
-      if (!res.ok) throw new Error("Error al subir la imagen");
-      const data = await res.json();
-      return data;
-    } catch {
-      return null;
-    }
-  };
-
   const handleSave = async () => {
     if (!form.title || !form.author) {
       alert("El título y el autor son obligatorios.");
@@ -84,13 +98,15 @@ useEffect(() => {
     }
     try {
       const token = localStorage.getItem("token");
+      // Convertir array de bytes a base64 si existe imagen
+      const coverImageBase64 = form.coverImage ? btoa(String.fromCharCode(...form.coverImage)) : null;
       const formToSend = {
         Title: form.title,
         Author: form.author,
         Series: form.series,
         Publisher: form.publisher,
         Genre: form.genre,
-        Isbn: form.isbn,
+        ISBN: form.isbn,
         PublicationDate: form.publicationDate,
         PageCount: form.pageCount,
         StartReadingDate: form.startReadingDate,
@@ -98,25 +114,41 @@ useEffect(() => {
         Status: Number(form.status),
         LentTo: form.lentTo,
         Summary: form.summary,
-        CoverUrl: form.coverUrl,
-        AddedDate: form.addedDate,
-        Id: form.id,
+        Language: form.language || null,
+        Country: form.country || null,
+        CoverImage: coverImageBase64,
       };
-      console.log(`${process.env.REACT_APP_API_URL}/books/${book.id}`); // <-- aquí
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/books/${book.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(formToSend),
-      });
+      console.log(`Actualizando libro con ID: ${book.id}`);
+      console.log('=== ENVIANDO AL BACKEND ===');
+      console.log('formToSend.CoverImage:', formToSend.CoverImage ? `${formToSend.CoverImage.length} chars (base64)` : 'null');
+      if (form.coverImage) {
+        console.log('Primeros 10 bytes:', form.coverImage.slice(0, 10));
+      }
+      const res = await axiosClient.put(`/books/${book.id}`, formToSend);
       if (res.status === 204) {
+        // Actualizar book con los datos del form (incluyendo la imagen)
+        const updatedBook = {...book, ...form};
+        setBook(updatedBook);
+        setForm(updatedBook); // Sincronizar form también
         setEditing(false);
         return;
       }
-      const updated = await res.json();
-      setBook(updated);
+      const updated = res.data;
+      console.log('=== RESPUESTA DEL BACKEND ===');
+      console.log('Status:', res.status);
+      console.log('updated.coverImage:', updated.coverImage ? `${updated.coverImage.length} bytes` : 'null');
+      console.log('updated completo:', {
+        ...updated,
+        coverImage: updated.coverImage ? `[${updated.coverImage.length} bytes]` : 'null'
+      });
+      // Si el backend devolvió datos, usarlos, pero preservar la imagen si no viene
+      const bookToUpdate = {
+        ...updated,
+        coverImage: updated.coverImage || form.coverImage
+      };
+      console.log('Libro final a guardar:', bookToUpdate.coverImage ? `${bookToUpdate.coverImage.length} bytes` : 'null');
+      setBook(bookToUpdate);
+      setForm(bookToUpdate); // Sincronizar form también
       setEditing(false);
     } catch {
       alert("No se pudo actualizar el libro");
@@ -140,19 +172,7 @@ useEffect(() => {
       <div className="book-detail-container">
         <div className="book-detail-flex-row">
           <img
-            src={
-              editing
-                ? (form.coverUrl
-                    ? (form.coverUrl.startsWith("http") || form.coverUrl.startsWith("data:")
-                        ? form.coverUrl
-                        : `${process.env.REACT_APP_COVERS_URL || ''}${form.coverUrl}`)
-                    : "https://via.placeholder.com/192x288?text=Sin+Portada")
-                : (book.coverUrl
-                    ? (book.coverUrl.startsWith("http") || book.coverUrl.startsWith("data:")
-                        ? book.coverUrl
-                        : `${process.env.REACT_APP_COVERS_URL || ''}${book.coverUrl}?v=${Date.now()}`)
-                    : "https://via.placeholder.com/192x288?text=Sin+Portada")
-            }
+            src={editing ? getImageUrl(form) : getImageUrl(book)}
             alt={form.title || book.title}
               style={{
                 maxWidth: "250px",   // 👈 tamaño fijo en la ficha
@@ -189,18 +209,40 @@ useEffect(() => {
                     onChange={async (e) => {
                       const file = e.target.files[0];
                       if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = async () => {
-                          const result = reader.result;
-                          const isbn = form.isbn || "temp";
-                          const upload = await uploadImageToServer(result, isbn);
-                          if (upload?.relativePath) {
-                            setForm(f => ({ ...f, coverUrl: upload.relativePath, thumbnailUrl: upload.thumbnailPath }));
-                          } else {
-                            alert("No se pudo subir la imagen");
-                          }
+                        // Redimensionar la imagen antes de convertirla a bytes
+                        const resizeImage = (file, maxWidth = 400) => {
+                          return new Promise((resolve, reject) => {
+                            const img = new window.Image();
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              img.onload = () => {
+                                const scale = Math.min(1, maxWidth / img.width);
+                                const canvas = document.createElement('canvas');
+                                canvas.width = img.width * scale;
+                                canvas.height = img.height * scale;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                canvas.toBlob((blob) => {
+                                  resolve(blob);
+                                }, 'image/jpeg', 0.85);
+                              };
+                              img.onerror = reject;
+                              img.src = ev.target.result;
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                          });
                         };
-                        reader.readAsDataURL(file);
+                        try {
+                          const resizedBlob = await resizeImage(file, 400);
+                          const arrayBuffer = await resizedBlob.arrayBuffer();
+                          const imageBytes = Array.from(new Uint8Array(arrayBuffer));
+                          setForm(f => ({ ...f, coverImage: imageBytes }));
+                          alert("Imagen redimensionada y cargada correctamente");
+                        } catch (error) {
+                          console.error('Error al procesar imagen:', error);
+                          alert("Error al procesar la imagen: " + error.message);
+                        }
                       }
                     }}
                   />
@@ -405,6 +447,19 @@ useEffect(() => {
               >
                  Cancelar
               </button>
+              {/* Debug button - remover después */}
+              <button
+                className="book-detail-btn book-detail-btn-blue"
+                onClick={() => {
+                  console.log('=== DEBUG INFO ===');
+                  console.log('form.coverImage:', form.coverImage ? `${form.coverImage.length} bytes` : 'null');
+                  console.log('book.coverImage:', book.coverImage ? `${book.coverImage.length} bytes` : 'null');
+                  console.log('form completo:', form);
+                }}
+                style={{ fontSize: '12px', padding: '4px 8px' }}
+              >
+                Debug
+              </button>
             </div>
           </>
         ) : (
@@ -465,18 +520,21 @@ useEffect(() => {
                   if (!book.genre && genres.length) updated.genre = cleanGenres(genres);
                   if (!book.summary) updated.summary = infoGB?.description || infoOL?.description || book.summary;
                   // Si no hay portada, usar la de Google Books o OpenLibrary
-                  if ((!book.coverUrl || book.coverUrl.includes('placeholder')) 
-                    && (infoGB?.imageLinks?.thumbnail 
-                    || infoOL?.cover?.large 
-                    || infoOL?.cover?.medium 
-                    || infoOL?.cover?.small)) {
-                    // Siempre guardar como /covers/ISBN.jpg si hay ISBN
-                    const isbn = book.isbn || updated.isbn;
-                    if (isbn) {
-                      updated.coverUrl = `/covers/${isbn}.jpg`;
-                    } else {
-                      // Si no hay ISBN, usar un nombre genérico
-                      updated.coverUrl = '/covers/sin_isbn.jpg';
+                  if (!book.coverImage || book.coverImage.length === 0) {
+                    const imageUrl = infoGB?.imageLinks?.thumbnail 
+                      || infoOL?.cover?.large 
+                      || infoOL?.cover?.medium 
+                      || infoOL?.cover?.small;
+                    
+                    if (imageUrl) {
+                      try {
+                        // Descargar imagen y convertir a bytes
+                        const { bytes } = await downloadImageAsBytes(imageUrl);
+                        updated.coverImage = Array.from(bytes);
+                      } catch (error) {
+                        console.error('Error al descargar imagen de portada:', error);
+                        // Si falla, mantener la imagen actual
+                      }
                     }
                   }
                   if (!book.pageCount) updated.pageCount = infoGB?.pageCount || infoOL?.number_of_pages || book.pageCount;
@@ -491,13 +549,15 @@ useEffect(() => {
                   }
                   try {
                     const token = localStorage.getItem("token");
+                    // Convertir array de bytes a base64 si existe imagen
+                    const coverImageBase64 = updated.coverImage ? btoa(String.fromCharCode(...updated.coverImage)) : null;
                     const formToSend = {
                       Title: updated.title,
                       Author: updated.author,
                       Series: updated.series,
                       Publisher: updated.publisher,
                       Genre: updated.genre,
-                      Isbn: updated.isbn,
+                      ISBN: updated.isbn,
                       PublicationDate: normalizeDate(updated.publicationDate),
                       PageCount: updated.pageCount,
                       StartReadingDate: updated.startReadingDate,
@@ -505,29 +565,19 @@ useEffect(() => {
                       Status: Number(updated.status),
                       LentTo: updated.lentTo,
                       Summary: updated.summary,
-                      // Si el coverUrl es una URL externa, forzar formato /covers/ISBN.jpg
-                      CoverUrl: (updated.coverUrl && (updated.coverUrl.startsWith('http') || updated.coverUrl.startsWith('https')))
-                        ? (updated.isbn ? `/covers/${updated.isbn}.jpg` : '/covers/sin_isbn.jpg')
-                        : updated.coverUrl,
-                      AddedDate: updated.addedDate,
-                      Id: updated.id,
+                      Language: updated.language || null,
+                      Country: updated.country || null,
+                      CoverImage: coverImageBase64,
                     };
-                    const res = await fetch(`${process.env.REACT_APP_API_URL}/books/${book.id}`, {
-                      method: "PUT",
-                      headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${token}`,
-                      },
-                      body: JSON.stringify(formToSend),
-                    });
+                    const res = await axiosClient.put(`/books/${book.id}`, formToSend);
                     if (res.status === 200) {
-                      const saved = await res.json();
+                      const saved = res.data;
                       setBook(saved);
                       alert("Datos completados y guardados automáticamente (solo campos vacíos)");
                     } else if (res.status === 204) {
-                      const refreshed = await await fetch(`${process.env.REACT_APP_API_URL}/books/${book.id}`);
-                      if (refreshed.ok) {
-                        const saved = await refreshed.json();
+                      const refreshed = await axiosClient.get(`/books/${book.id}`);
+                      if (refreshed.status === 200) {
+                        const saved = refreshed.data;
                         setBook(saved);
                         alert("Datos completados y guardados automáticamente (solo campos vacíos)");
                       } else {
@@ -537,22 +587,13 @@ useEffect(() => {
                     } else {
                       let errorText = "";
                       try {
-                        // Intenta leer como texto
-                        const text = await res.text();
-                        // Intenta parsear como JSON si parece un objeto
-                        try {
-                          const json = JSON.parse(text);
-                          errorText = json.error || JSON.stringify(json);
-                        } catch {
-                          // Si no es JSON, usa el texto plano
-                          errorText = text || `${res.status} ${res.statusText}`;
-                        }
+                        errorText = res.data?.error || JSON.stringify(res.data) || `${res.status} ${res.statusText}`;
                       } catch (err) {
                         errorText = `${res.status} ${res.statusText}`;
                       }
                       setBook(updated);
                       alert("Error al guardar en el servidor: " + errorText);
-}
+                    }
                   } catch (e) {
                     setBook(updated);
                     alert("Datos completados localmente, pero no se pudieron guardar en el servidor: " + e);
@@ -578,14 +619,8 @@ useEffect(() => {
                 onClick={async () => {
                   if (window.confirm("¿Seguro que quieres eliminar este libro?")) {
                     try {
-                      const token = localStorage.getItem("token");
-                      const res = await fetch(`${process.env.REACT_APP_API_URL}/books/${book.id}`, {
-                        method: "DELETE",
-                        headers: {
-                          "Authorization": `Bearer ${token}`,
-                        },
-                      });
-                      if (!res.ok) throw new Error("No se pudo eliminar el libro");
+                      const res = await axiosClient.delete(`/books/${book.id}`);
+                      if (res.status !== 200 && res.status !== 204) throw new Error("No se pudo eliminar el libro");
                       navigate("/mis-libros");
                     } catch {
                       alert("No se pudo eliminar el libro");
@@ -670,27 +705,31 @@ useEffect(() => {
                       className="book-detail-cover-option"
                       onClick={async () => {
                         try {
-                          const token = localStorage.getItem("token");
-                          const res = await fetch(`${process.env.REACT_APP_API_URL}/books/upload-cover`, {
-                            method: "POST",
-                            headers: {
-                              "Content-Type": "application/json",
-                              "Authorization": `Bearer ${token}`,
-                            },
-                            body: JSON.stringify({
-                              imageUrl: cover.url,
-                              isbn: form.isbn || form.title.replace(/\s+/g, "_") || "sin_isbn"
-                            })
-                          });
-
-                          if (res.ok) {
-                            const data = await res.json();
-                            setForm(f => ({ ...f, coverUrl: data.relativePath }));
+                          // Descargar imagen y asegurar conversión a array de bytes
+                          const { bytes } = await downloadImageAsBytes(cover.url);
+                          let imageBytes;
+                          if (Array.isArray(bytes)) {
+                            imageBytes = Array.from(bytes);
+                          } else if (typeof bytes === 'string') {
+                            // Si viene en base64, convertir a array de bytes
+                            const base64 = bytes.split(',')[1] || bytes;
+                            const binary = atob(base64);
+                            imageBytes = Array.from(new Uint8Array([...binary].map(c => c.charCodeAt(0))));
+                          } else if (bytes instanceof ArrayBuffer) {
+                            imageBytes = Array.from(new Uint8Array(bytes));
+                          } else if (bytes instanceof Uint8Array) {
+                            imageBytes = Array.from(bytes);
+                          } else if (bytes && typeof bytes === 'object' && typeof bytes.buffer === 'object') {
+                            // Si es un objeto tipo Buffer (por ejemplo, de Node.js)
+                            imageBytes = Array.from(new Uint8Array(bytes.buffer));
                           } else {
-                            alert("No se pudo guardar la portada desde Internet");
+                            throw new Error('Formato de imagen no soportado');
                           }
-                        } catch {
-                          alert("Error al guardar portada desde Internet");
+                          setForm(f => ({ ...f, coverImage: imageBytes }));
+                          alert("Portada guardada correctamente");
+                        } catch (error) {
+                          console.error('Error al procesar imagen de Internet:', error);
+                          alert("Error al guardar portada desde Internet: " + error.message);
                         }
                         setShowCoverSearch(false);
                       }}
@@ -759,13 +798,7 @@ useEffect(() => {
 
                 {/* Imagen con zoom */}
                 <motion.img
-                  src={
-                    book.coverUrl
-                      ? (book.coverUrl.startsWith("http") || book.coverUrl.startsWith("data:")
-                          ? book.coverUrl
-                          : `${process.env.REACT_APP_COVERS_URL || ''}${book.coverUrl}`)
-                      : "https://via.placeholder.com/400x600?text=Sin+Portada"
-                  }
+                  src={getImageUrl(book)}
                   alt={book.title}
                   style={{
                     maxWidth: "90vw",

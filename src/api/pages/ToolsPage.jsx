@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axiosClient from "../axiosClient";
 
 function ToolsPage() {
   const navigate = useNavigate();
@@ -28,12 +29,8 @@ function ToolsPage() {
 
   const fetchPublishersAndAuthors = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/books/data`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Error al cargar datos");
-      const data = await response.json();
+      const response = await axiosClient.get('/books/data');
+      const data = response.data;
       setAllPublishers(data.publishers);
       setAllAuthors(data.authors);
       setPublisherMap(data.publisherMap);
@@ -49,15 +46,11 @@ function ToolsPage() {
     const token = localStorage.getItem("token");
     if (!token) { alert("No estás autenticado."); return; }
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/books/export`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await axiosClient.get('/books/export', {
+        responseType: 'blob'
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        alert(`No se pudo descargar la base de datos.\nCódigo: ${response.status}\n${errorText}`);
-        return;
-      }
-      const blob = await response.blob();
+      
+      const blob = response.data;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -67,7 +60,8 @@ function ToolsPage() {
       a.remove();
     } catch (err) {
       console.error(err);
-      alert("Error al descargar CSV.");
+      const errorMsg = err.response?.data ? await err.response.data.text() : err.message;
+      alert(`No se pudo descargar la base de datos.\nCódigo: ${err.response?.status || 'N/A'}\n${errorMsg}`);
     }
   };
 
@@ -79,17 +73,13 @@ function ToolsPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/books/import`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
+      const response = await axiosClient.post('/books/import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        alert(`Error al importar CSV:\n${errorText}`);
-        return;
-      }
-      const data = await response.json();
+      
+      const data = response.data;
       setImportMessage(`Importación completada:
         \nAñadidos: ${data.added}
         \nActualizados: ${data.updated}
@@ -107,33 +97,24 @@ const handleMergePublisher = async (oldValue, newValue) => {
   }
 
   try {
-    const response = await fetch(
-      `${process.env.REACT_APP_API_URL}/tools/merge-publisher`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ oldValue, newValue }),
-      }
-    );
+    const response = await axiosClient.post('/tools/merge-publisher', {
+      oldValue,
+      newValue
+    });
 
-    if (response.ok) {
-      // Solo intentamos leer JSON si el status no es 204
-      if (response.status !== 204) {
-        const data = await response.json();
-        console.log("Respuesta del backend:", data);
-      }      
+    // Verificar si la respuesta fue exitosa
+    if (response.status === 200 || response.status === 204) {
+      // Solo intentamos leer JSON si el status es 200
+      if (response.status === 200 && response.data) {
+        console.log("Respuesta del backend:", response.data);
+      }
       alert(`Editorial "${oldValue}" fusionada en "${newValue}"`);
-        fetchPublishersAndAuthors();             // refrescar lista        
-    } else {
-      const errorText = await response.text();
-      alert("Error al fusionar: " + errorText);
+      fetchPublishersAndAuthors(); // refrescar lista
     }
   } catch (error) {
     console.error("Error al fusionar editorial:", error);
-    alert("Error de conexión con el servidor.");
+    const errorText = error.response?.data?.error || error.message;
+    alert("Error al fusionar: " + errorText);
   }
 };
 
@@ -143,34 +124,25 @@ const handleMergeAuthor = async (oldValue, newValue) => {
     return;
   }
   try {
-    const response = await fetch(
-      `${process.env.REACT_APP_API_URL}/tools/merge-author`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ oldValue, newValue }),
-      }
-    );
+    const response = await axiosClient.post('/tools/merge-author', {
+      oldValue,
+      newValue
+    });
 
-    if (response.ok) {
-      // Solo intentamos leer JSON si el status no es 204
-      if (response.status !== 204) {
-        const data = await response.json();
-        console.log("Respuesta del backend:", data);
+    // Verificar si la respuesta fue exitosa
+    if (response.status === 200 || response.status === 204) {
+      // Solo intentamos leer JSON si el status es 200
+      if (response.status === 200 && response.data) {
+        console.log("Respuesta del backend:", response.data);
       }
 
       alert(`Autor "${oldValue}" fusionado en "${newValue}"`);
-        fetchPublishersAndAuthors();              // refrescar lista
-    } else {
-      const errorText = await response.text();
-      alert("Error al fusionar: " + errorText);
+      fetchPublishersAndAuthors(); // refrescar lista
     }
   } catch (error) {
     console.error("Error al fusionar autor:", error);
-    alert("Error de conexión con el servidor.");
+    const errorText = error.response?.data?.error || error.message;
+    alert("Error al fusionar: " + errorText);
   }
 };
 

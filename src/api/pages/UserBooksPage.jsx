@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BookService from '../BookService';
+import axiosClient from '../axiosClient';
 import GoogleBooksSearch from "../components/GoogleBooksSearch";
 import StatisticsPage from "./StatisticsPage";
 import "../../Estilos/BookDetailPage.css";
 import "../../Estilos/UserBooksPage.css";
 import IsbnScanner from "../../components/IsbnScanner";
+import { bytesToDataUrl } from "../../utils/imageUtils";
 
 
 // Función para traducir el estado numérico a texto y estilos
@@ -18,6 +20,28 @@ function getReadingStatus(status) {
     case 3: return { text: "No terminado", icon: "❌", color: "bg-red-100 text-red-700" };
     default: return { text: "Desconocido", icon: "❓", color: "bg-gray-200 text-gray-700" };
   }
+}
+
+// Helper para obtener la URL de la imagen desde los datos del libro
+function getBookImageUrl(book) {
+  if (!book || !book.coverImage) {
+    return "https://via.placeholder.com/192x288?text=Sin+Portada";
+  }
+  // Si es array de bytes
+  if (Array.isArray(book.coverImage) && book.coverImage.length > 0) {
+    return bytesToDataUrl(book.coverImage, 'image/jpeg');
+  }
+  // Si es string base64
+  if (typeof book.coverImage === 'string' && book.coverImage.length > 0) {
+    try {
+      const binary = atob(book.coverImage);
+      const bytes = new Uint8Array([...binary].map(c => c.charCodeAt(0)));
+      return bytesToDataUrl(Array.from(bytes), 'image/jpeg');
+    } catch (e) {
+      return "https://via.placeholder.com/192x288?text=Sin+Portada";
+    }
+  }
+  return "https://via.placeholder.com/192x288?text=Sin+Portada";
 }
 
 // Normalizar texto eliminando tildes para comparar
@@ -129,19 +153,42 @@ const UserBooksPage = () => {
     setImportLoading(true);
     setImportError("");
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/books/import-from-google`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ isbn, language }),
+      const res = await axiosClient.post('/books/import-from-google', {
+        isbn,
+        language
       });
-      if (!res.ok) throw new Error("No se pudo importar el libro");
-      const data = await res.json();
-      const importedBook = data.book ? data.book : data;
-//      console.log("handleImportByIsbn: libro importado:", importedBook);
+      const data = res.data;
+      let importedBook = data.book ? data.book : data;
+      // Si la imagen viene como array de bytes, convertir a base64 y actualizar en el backend
+      if (importedBook.coverImage && Array.isArray(importedBook.coverImage)) {
+        const coverImageBase64 = btoa(String.fromCharCode(...importedBook.coverImage));
+        try {
+          await axiosClient.put(`/books/${importedBook.id}`, {
+            Title: importedBook.title,
+            Author: importedBook.author,
+            Series: importedBook.series,
+            Publisher: importedBook.publisher,
+            Genre: importedBook.genre,
+            ISBN: importedBook.isbn,
+            PublicationDate: importedBook.publicationDate,
+            PageCount: importedBook.pageCount,
+            StartReadingDate: importedBook.startReadingDate,
+            EndReadingDate: importedBook.endReadingDate,
+            Status: Number(importedBook.status),
+            LentTo: importedBook.lentTo,
+            Summary: importedBook.summary,
+            Language: importedBook.language || null,
+            Country: importedBook.country || null,
+            CoverImage: coverImageBase64,
+          });
+          importedBook = {
+            ...importedBook,
+            coverImage: coverImageBase64
+          };
+        } catch (e) {
+          console.error('Error actualizando imagen en base64 tras importar:', e);
+        }
+      }
       setBooks(prev => [importedBook, ...prev]);
       setShowAddByIsbn(false);
       setIsbn("");
@@ -289,16 +336,11 @@ const UserBooksPage = () => {
         <div className="user-books-grid">
           {applySorting(filteredBooks).map(book => {
             const status = getReadingStatus(book.status);
-            const coversBaseUrl = process.env.REACT_APP_COVERS_URL || '';
-            const coverUrl = book.coverUrl
-              ? (book.coverUrl.startsWith('http') || book.coverUrl.startsWith('data:')
-                  ? book.coverUrl
-                  : `${coversBaseUrl}${book.coverUrl}`)
-              : "https://via.placeholder.com/192x288?text=Sin+Portada";
+            const imageUrl = getBookImageUrl(book);
             return (
               <div key={book.id} onClick={() => navigate(`/mis-libros/${book.id}`)} className="user-book-card">
                 <img
-                  src={coverUrl}
+                  src={imageUrl}
                   alt={book.title}
                 />
                 <h2 className="user-book-card-title">{book.title}</h2>
