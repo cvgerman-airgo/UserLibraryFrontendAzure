@@ -2,16 +2,8 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  // Configuración del cliente Axios
-  // Configuracion para Doker
-  // En tehoria, esta linea es para cuando se usa Docker y el frontend y backend están en el mismo host
-baseURL: process.env.REACT_APP_API_URL || '/api', // Usa variable de entorno o proxy
-
-  // Si accedes desde el host (Windows)
-  // y en .ENV (raiz del frontend) 
-  // REACT_APP_API_URL=http://localhost:5000
-
-
+  // En producción (Kubernetes), usa siempre el proxy de Nginx
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },

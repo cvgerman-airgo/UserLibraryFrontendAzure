@@ -99,7 +99,7 @@ useEffect(() => {
     try {
       const token = localStorage.getItem("token");
       // Convertir array de bytes a base64 si existe imagen
-      const coverImageBase64 = form.coverImage ? btoa(String.fromCharCode(...form.coverImage)) : null;
+      const coverImageBase64 = form.coverImage && form.coverImage.length > 0 ? btoa(String.fromCharCode(...form.coverImage)) : undefined;
       const formToSend = {
         Title: form.title,
         Author: form.author,
@@ -115,9 +115,11 @@ useEffect(() => {
         LentTo: form.lentTo,
         Summary: form.summary,
         Language: form.language || null,
-        Country: form.country || null,
-        CoverImage: coverImageBase64,
+        Country: form.country || null
       };
+      if (coverImageBase64) {
+        formToSend.CoverImage = coverImageBase64;
+      }
       console.log(`Actualizando libro con ID: ${book.id}`);
       console.log('=== ENVIANDO AL BACKEND ===');
       console.log('formToSend.CoverImage:', formToSend.CoverImage ? `${formToSend.CoverImage.length} chars (base64)` : 'null');
